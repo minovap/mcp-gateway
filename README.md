@@ -8,17 +8,6 @@ An MCP gateway that aggregates multiple MCP resource servers through a single in
 - **Batch Request Tool**: Optimized parallel execution for multiple tool calls
 - **Configuration Merging**: Works with Claude desktop configuration
 
-## Quick Setup
-
-```bash
-npm install @thinkware/mcp-gateway
-
-# Create a config file
-cp node_modules/@thinkware/mcp-gateway/config.example.json config.json
-
-# Edit the config.json to add your MCP servers
-```
-
 ## Configuration Paths
 
 The gateway looks for configuration files in the following order:
