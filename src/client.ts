@@ -52,6 +52,9 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
       } catch (error) {
         logMcpRequest('could not resolve command path', `Command not found in PATH: ${server.transport.command}, using as provided`);
       }
+      
+      // Always inject PATH from current process
+      envVars['PATH'] = process.env.PATH || '';
 
       transport = new StdioClientTransport({
         command: server.transport.command,
