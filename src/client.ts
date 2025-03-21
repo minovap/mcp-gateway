@@ -3,6 +3,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { logMcpRequest } from './mcp-proxy.js';
+import {execSync} from "child_process";
 
 interface ServerConfigInternal {
   name: string;
@@ -28,13 +29,13 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
     } else if ('command' in server.transport) {
       // Stdio transport
       const envVars: Record<string, string> = {};
-      
+
       // Set up environment variables from config
       if (server.transport.env) {
         // If it's the new object format, use it directly
         if (!Array.isArray(server.transport.env)) {
           Object.assign(envVars, server.transport.env);
-        } 
+        }
         // If it's the legacy array format, convert to object
         else {
           server.transport.env.forEach(key => {
@@ -42,7 +43,16 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
           });
         }
       }
-      
+
+      // Check if command exists and get full path
+      try {
+        const commandPath = execSync(`which ${server.transport.command}`).toString().trim();
+        logMcpRequest('resolved command path', `Using command path: ${commandPath}`);
+        server.transport.command = commandPath;
+      } catch (error) {
+        logMcpRequest('could not resolve command path', `Command not found in PATH: ${server.transport.command}, using as provided`);
+      }
+
       transport = new StdioClientTransport({
         command: server.transport.command,
         args: server.transport.args,
@@ -50,7 +60,7 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
       });
     }
   } catch (error) {
-    console.error(`Failed to create transport for ${server.name}:`, error);
+    logMcpRequest(`Failed to create transport for ${server.name}:`, error);
   }
 
   if (!transport) {
