@@ -85,7 +85,6 @@ The gateway can read the `proxyBatchMcpServers` section from your Claude desktop
 | `args` | string[] | Command arguments | No |
 | `env` | object | Environment variables | No |
 | `url` | string | SSE endpoint URL | Yes (for SSE servers) |
-| `disabled` | boolean | Disable server | No |
 | `toolOverrides` | object | Tool customization | No |
 
 ### Tool Override Options
@@ -94,16 +93,26 @@ The gateway can read the `proxyBatchMcpServers` section from your Claude desktop
 |--------|------|-------------|---------|
 | `enabled` | boolean | Enable/disable tool | `true` |
 | `description` | string | Custom tool description | Original description |
+| `disabled` | boolean | Disable entire tool | `false` |
 
-## Logging
+## Environment Variables
 
-Set the `MCP_GATEWAY_LOG_FILE` environment variable to enable logging to a file:
-
-```bash
-MCP_GATEWAY_LOG_FILE=/path/to/logs/mcp-gateway.log npx @thinkware/mcp-gateway
+```json
+{
+  "mcpServers": {
+    "mcp-gateway": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@thinkware/mcp-gateway"
+      ],
+      "env": {
+        "MCP_GATEWAY_LOG_FILE": "/path/to/logs/mcp-gateway.log"
+      }
+    }
+  }
+}
 ```
-
-By default, no logging occurs if this environment variable is not set.
 
 ## Development
 
