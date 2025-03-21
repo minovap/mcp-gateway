@@ -1,0 +1,44 @@
+{
+  "name": "@thinkware/mcp-gateway",
+  "version": "0.1.0",
+  "author": "Thinkware",
+  "license": "MIT",
+  "description": "An MCP gateway that aggregates and serves multiple MCP resource servers through a single interface",
+  "private": false,
+  "keywords": ["mcp", "proxy", "gateway", "claude", "anthropic", "batch"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thinkware/mcp-gateway.git"
+  },
+  "type": "module",
+  "bin": {
+    "mcp-gateway": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "dev": "nodemon --watch 'src/**' --ext 'ts,json' --ignore 'src/**/*.spec.ts' --exec 'tsx src/index.ts'",
+    "dev:sse": "nodemon --watch 'src/**' --ext 'ts,json' --ignore 'src/**/*.spec.ts' --exec 'tsx src/sse.ts'",
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepublishOnly": "npm run build",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "@types/cors": "^2.8.17",
+    "cors": "^2.8.5",
+    "eventsource": "^3.0.2",
+    "express": "^4.21.1",
+    "zod-to-json-schema": "^3.23.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.11.24",
+    "nodemon": "^3.1.9",
+    "tsx": "^4.19.2",
+    "typescript": "^5.3.3"
+  }
+}

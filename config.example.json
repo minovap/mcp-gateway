@@ -1,0 +1,25 @@
+{
+  "proxyBatchMcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/username/Desktop",
+        "/path/to/other/allowed/dir"
+      ],
+      "toolOverrides": {
+        "read_file": {
+          "enabled": true,
+          "description": "Read complete contents of a file\nInput: path (string)\nReads complete file contents with UTF-8 encoding"
+        },
+        "read_multiple_files": {
+          "enabled": false
+        }
+      }
+    },
+    "http-mcp-server": {
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}
