@@ -27,18 +27,20 @@ import * as path from 'path';
 
 global.EventSource = eventsource.EventSource
 
-const enableLogging = false;
-const MCP_LOG_FILE = path.resolve('log_file_path_here');
+// Use environment variable for logging
+export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
 
 // Utility to log MCP requests
-const logMcpRequest = (method: string, params: any) => {
-  if (!enableLogging) return;
+export const logMcpRequest = (method: string, params: any) => {
+  // Only log if log file path is provided
+  if (!MCP_LOG_FILE) return;
+  
   try {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${method} ${JSON.stringify(params, null, 2)}\n\n`;
     fs.appendFileSync(MCP_LOG_FILE, logEntry);
   } catch (error) {
-    console.error('Error writing to log file:', error);
+    // Silently fail if file can't be written
   }
 };
 
@@ -48,7 +50,7 @@ export const createServer = async () => {
   // Convert the server map to array format expected by createClients
   const serversArray = serversMapToArray(config.proxyBatchMcpServers);
   const connectedClients = await createClients(serversArray);
-  //console.log(`Connected to ${connectedClients.length} servers`);
+  logMcpRequest('info', `Connected to ${connectedClients.length} servers`);
 
   // Maps to track which client owns which resource
   const toolToClientMap = new Map<string, ConnectedClient>();
@@ -132,7 +134,7 @@ export const createServer = async () => {
           allTools.push(...toolsWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching tools from ${connectedClient.name}:`, error);
+        logMcpRequest('error', `Error fetching tools from ${connectedClient.name}: ${error}`);
       }
     }
 
@@ -148,7 +150,7 @@ export const createServer = async () => {
     
     // Check if this is our batch request tool
     if (name === 'batch_request') {
-      //console.log('Processing batch request');
+      logMcpRequest('info', 'Processing batch request');
       try {
         let batchArgs;
         try {
@@ -169,7 +171,7 @@ export const createServer = async () => {
             ]
           };
         }
-        //console.log(`Received batch request with ${batchArgs.requests.length} sub-requests`);
+        logMcpRequest('info', `Received batch request with ${batchArgs.requests.length} sub-requests`);
         
         // Check for duplicate IDs
         const idCounts = new Map<string, number>();
@@ -224,7 +226,7 @@ export const createServer = async () => {
           }
           
           try {
-            //console.log(`Executing batch sub-request for tool: ${req.tool_name}`);
+            logMcpRequest('info', `Executing batch sub-request for tool: ${req.tool_name}`);
             const result = await clientForTool.client.request(
               {
                 method: 'tools/call',
@@ -256,7 +258,7 @@ export const createServer = async () => {
               };
             }
           } catch (error) {
-            console.error(`Error calling tool ${req.tool_name} through ${clientForTool.name}:`, error);
+            logMcpRequest('error', `Error calling tool ${req.tool_name} through ${clientForTool.name}: ${error}`);
             return {
               tool_name: req.tool_name,
               success: false,
@@ -277,7 +279,7 @@ export const createServer = async () => {
           ]
         };
       } catch (error) {
-        console.error('Error processing batch request:', error);
+        logMcpRequest('error', `Error processing batch request: ${error}`);
         throw error;
       }
     }
@@ -294,7 +296,7 @@ export const createServer = async () => {
     }
     
     try {
-      console.log(`Executing direct tool call for: ${name}`);
+      logMcpRequest('info', `Executing direct tool call for: ${name}`);
       const result = await clientForTool.client.request(
         {
           method: 'tools/call',
@@ -330,7 +332,7 @@ export const createServer = async () => {
         }]
       };
     } catch (error) {
-      console.error(`Error calling tool ${name}:`, error);
+      logMcpRequest('error', `Error calling tool ${name}: ${error}`);
       return {
         content: [{
           type: "text",
@@ -350,7 +352,7 @@ export const createServer = async () => {
     }
 
     try {
-      console.log('Forwarding prompt request:', name);
+      logMcpRequest('info', `Forwarding prompt request: ${name}`);
 
       // Match the exact structure from the example code
       const response = await clientForPrompt.client.request(
@@ -367,10 +369,10 @@ export const createServer = async () => {
         GetPromptResultSchema
       );
 
-      console.log('Prompt result:', response);
+      logMcpRequest('info', `Prompt result: ${JSON.stringify(response)}`);
       return response;
     } catch (error) {
-      console.error(`Error getting prompt from ${clientForPrompt.name}:`, error);
+      logMcpRequest('error', `Error getting prompt from ${clientForPrompt.name}: ${error}`);
       throw error;
     }
   });
@@ -406,7 +408,7 @@ export const createServer = async () => {
           allPrompts.push(...promptsWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching prompts from ${connectedClient.name}:`, error);
+        logMcpRequest('error', `Error fetching prompts from ${connectedClient.name}: ${error}`);
       }
     }
 
@@ -445,7 +447,7 @@ export const createServer = async () => {
           allResources.push(...resourcesWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching resources from ${connectedClient.name}:`, error);
+        logMcpRequest('error', `Error fetching resources from ${connectedClient.name}: ${error}`);
       }
     }
 
@@ -476,7 +478,7 @@ export const createServer = async () => {
         ReadResourceResultSchema
       );
     } catch (error) {
-      console.error(`Error reading resource from ${clientForResource.name}:`, error);
+      logMcpRequest('error', `Error reading resource from ${clientForResource.name}: ${error}`);
       throw error;
     }
   });
@@ -509,7 +511,7 @@ export const createServer = async () => {
           allTemplates.push(...templatesWithSource);
         }
       } catch (error) {
-        console.error(`Error fetching resource templates from ${connectedClient.name}:`, error);
+        logMcpRequest('error', `Error fetching resource templates from ${connectedClient.name}: ${error}`);
       }
     }
 

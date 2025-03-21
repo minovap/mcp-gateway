@@ -2,6 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { logMcpRequest } from './mcp-proxy.js';
 
 interface ServerConfigInternal {
   name: string;
@@ -53,7 +54,7 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
   }
 
   if (!transport) {
-    console.warn(`Transport ${server.name} not available.`)
+    logMcpRequest('warn', `Transport ${server.name} not available.`)
     return { transport: undefined, client: undefined }
   }
 
@@ -91,7 +92,7 @@ export const createClients = async (servers: ServerConfigInternal[]): Promise<Co
 
       try {
         await client.connect(transport);
-        //console.log(`Connected to server: ${server.name}`);
+        logMcpRequest('info', `Connected to server: ${server.name}`);
 
         clients.push({
           client,
@@ -111,7 +112,7 @@ export const createClients = async (servers: ServerConfigInternal[]): Promise<Co
           try {
             await client.close()
           } catch { }
-          console.log(`Retry connection to ${server.name} in ${waitFor}ms (${count}/${retries})`);
+          logMcpRequest('info', `Retry connection to ${server.name} in ${waitFor}ms (${count}/${retries})`);
           await sleep(waitFor)
         }
       }

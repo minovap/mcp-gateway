@@ -38,13 +38,32 @@ The gateway can read the `proxyBatchMcpServers` section from your Claude desktop
 {
   "mcpServers": {
     "mcp-gateway": {
-      "command": "/path/to/mcp-gateway/build/index.js",
-      "env": {
-        "KEEP_SERVER_OPEN": "1"
-      }
+      "command": "npx",
+      "args": [
+        "-y",
+        "@thinkware/mcp-gateway"
+      ]
     }
   },
   "proxyBatchMcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/username/Desktop",
+        "/path/to/other/allowed/dir"
+      ],
+      "toolOverrides": {
+        "read_file": {
+          "enabled": true,
+          "description": "Read complete contents of a file\nInput: path (string)\nReads complete file contents with UTF-8 encoding"
+        },
+        "read_multiple_files": {
+          "enabled": false
+        }
+      }
+    },
     "server-1": {
       "command": "/path/to/server1/build/index.js",
       "toolOverrides": {
@@ -75,6 +94,16 @@ The gateway can read the `proxyBatchMcpServers` section from your Claude desktop
 |--------|------|-------------|---------|
 | `enabled` | boolean | Enable/disable tool | `true` |
 | `description` | string | Custom tool description | Original description |
+
+## Logging
+
+Set the `MCP_GATEWAY_LOG_FILE` environment variable to enable logging to a file:
+
+```bash
+MCP_GATEWAY_LOG_FILE=/path/to/logs/mcp-gateway.log npx @thinkware/mcp-gateway
+```
+
+By default, no logging occurs if this environment variable is not set.
 
 ## Development
 
