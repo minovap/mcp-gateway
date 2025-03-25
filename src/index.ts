@@ -6,12 +6,9 @@
  * - Properly handles orphaned processes
  * - Aggressively terminates all related processes on exit
  */
-
-const { Server } = await import("@modelcontextprotocol/sdk/server/index.js");
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp-proxy.js";
 import { ConnectedClient } from './client.js';
-import singleInstance from 'single-instance';
 
 /**
  * Forcefully disconnect clients and terminate their transport processes
@@ -61,127 +58,48 @@ function setupOrphanDetection(): NodeJS.Timeout | null {
   return interval;
 }
 
-/**
- * Creates an empty MCP server that just responds to basic protocol requests
- * but doesn't actually do any real work
- */
-async function createEmptyServer(): Promise<{ server: any, cleanup: () => Promise<void> }> {
-  // Import the required schemas from MCP SDK
-
-  // Create a minimal server
-  const server = new Server(
-    {
-      name: "claude-mcp-empty-server",
-      version: "1.0.0"
-    },
-    {
-      capabilities: {
-        prompts: {}
-      }
-    }
-  );
-
-  // Return the server and a simple cleanup function
-  return {
-    server,
-    cleanup: async () => {}
-  };
-}
-
 async function main() {
-  // Create instance locker with a unique name related to Claude
-  const locker = new singleInstance('claude-mcp-gateway');
-
   // Set up orphan detection
   const orphanInterval = setupOrphanDetection();
 
-  try {
-    await locker.lock();
+  // Initialize the server
+  const transport = new StdioServerTransport();
+  const { server, cleanup, connectedClients } = await createServer();
+  await server.connect(transport);
 
-    // Initialize the server
-    const transport = new StdioServerTransport();
-    const { server, cleanup, connectedClients } = await createServer();
-    await server.connect(transport);
+  // Handle exit gracefully
+  const handleExit = async () => {
+    // Clear orphan check interval
+    if (orphanInterval) clearInterval(orphanInterval);
 
-    // Handle exit gracefully
-    const handleExit = async () => {
-      // Clear orphan check interval
-      if (orphanInterval) clearInterval(orphanInterval);
-
-      // First disconnect clients (closes transports properly)
-      if (connectedClients) {
-        await disconnectClients(connectedClients);
-      }
-
-      // Clean up server resources
-      await cleanup();
-      await server.close();
-
-      // Release the lock
-      try {
-        await locker.unlock();
-      } catch {}
-
-      // Give a small delay for processes to be cleaned up
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      process.exit(0);
-    };
-
-    // Register signal handlers
-    process.on("SIGINT", handleExit);
-    process.on("SIGTERM", handleExit);
-    process.on("uncaughtException", async (error) => {
-      console.error("Uncaught exception:", error);
-      await handleExit();
-    });
-    process.on("unhandledRejection", async (reason) => {
-      console.error("Unhandled rejection:", reason);
-      await handleExit();
-    });
-
-    process.on("exit", () => {});
-  } catch (error) {
-    // Instead of exiting, create and start an empty server
-
-    try {
-      const transport = new StdioServerTransport();
-      const { server, cleanup } = await createEmptyServer();
-      await server.connect(transport);
-      
-      // Handle exit gracefully
-      const handleEmptyExit = async () => {
-        // Clear orphan check interval
-        if (orphanInterval) clearInterval(orphanInterval);
-        
-        // Clean up server resources
-        await cleanup();
-        await server.close();
-        
-        // Give a small delay for processes to be cleaned up
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        process.exit(0);
-      };
-      
-      // Register signal handlers
-      process.on("SIGINT", handleEmptyExit);
-      process.on("SIGTERM", handleEmptyExit);
-      process.on("uncaughtException", async (error) => {
-        console.error("Uncaught exception in empty server:", error);
-        await handleEmptyExit();
-      });
-      process.on("unhandledRejection", async (reason) => {
-        console.error("Unhandled rejection in empty server:", reason);
-        await handleEmptyExit();
-      });
-      
-      process.on("exit", () => {});
-    } catch (emptyServerError) {
-      console.error("Failed to start empty server:", emptyServerError);
-      process.exit(0);
+    // First disconnect clients (closes transports properly)
+    if (connectedClients) {
+      await disconnectClients(connectedClients);
     }
-  }
+
+    // Clean up server resources
+    await cleanup();
+    await server.close();
+
+    // Give a small delay for processes to be cleaned up
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    process.exit(0);
+  };
+
+  // Register signal handlers
+  process.on("SIGINT", handleExit);
+  process.on("SIGTERM", handleExit);
+  process.on("uncaughtException", async (error) => {
+    console.error("Uncaught exception:", error);
+    await handleExit();
+  });
+  process.on("unhandledRejection", async (reason) => {
+    console.error("Unhandled rejection:", reason);
+    await handleExit();
+  });
+
+  process.on("exit", () => {});
 }
 
 main().catch((error) => {
