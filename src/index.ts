@@ -7,6 +7,7 @@
  * - Aggressively terminates all related processes on exit
  */
 
+const { Server } = await import("@modelcontextprotocol/sdk/server/index.js");
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp-proxy.js";
 import { ConnectedClient } from './client.js';
@@ -21,7 +22,6 @@ async function disconnectClients(clients: ConnectedClient[]): Promise<void> {
   // First try to gracefully disconnect each client
   await Promise.all(clients.map(async (client) => {
     try {
-      await client.client.transport!.close();
       // Run cleanup function (closes transport)
       await client.cleanup();
       
@@ -61,10 +61,36 @@ function setupOrphanDetection(): NodeJS.Timeout | null {
   return interval;
 }
 
+/**
+ * Creates an empty MCP server that just responds to basic protocol requests
+ * but doesn't actually do any real work
+ */
+async function createEmptyServer(): Promise<{ server: any, cleanup: () => Promise<void> }> {
+  // Import the required schemas from MCP SDK
+
+  // Create a minimal server
+  const server = new Server(
+    {
+      name: "claude-mcp-empty-server",
+      version: "1.0.0"
+    },
+    {
+      capabilities: {
+        prompts: {}
+      }
+    }
+  );
+
+  // Return the server and a simple cleanup function
+  return {
+    server,
+    cleanup: async () => {}
+  };
+}
+
 async function main() {
   // Create instance locker with a unique name related to Claude
   const locker = new singleInstance('claude-mcp-gateway');
-
 
   // Set up orphan detection
   const orphanInterval = setupOrphanDetection();
@@ -97,7 +123,7 @@ async function main() {
       } catch {}
 
       // Give a small delay for processes to be cleaned up
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       process.exit(0);
     };
@@ -116,7 +142,45 @@ async function main() {
 
     process.on("exit", () => {});
   } catch (error) {
+    // Instead of exiting, create and start an empty server
 
+    try {
+      const transport = new StdioServerTransport();
+      const { server, cleanup } = await createEmptyServer();
+      await server.connect(transport);
+      
+      // Handle exit gracefully
+      const handleEmptyExit = async () => {
+        // Clear orphan check interval
+        if (orphanInterval) clearInterval(orphanInterval);
+        
+        // Clean up server resources
+        await cleanup();
+        await server.close();
+        
+        // Give a small delay for processes to be cleaned up
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        process.exit(0);
+      };
+      
+      // Register signal handlers
+      process.on("SIGINT", handleEmptyExit);
+      process.on("SIGTERM", handleEmptyExit);
+      process.on("uncaughtException", async (error) => {
+        console.error("Uncaught exception in empty server:", error);
+        await handleEmptyExit();
+      });
+      process.on("unhandledRejection", async (reason) => {
+        console.error("Unhandled rejection in empty server:", reason);
+        await handleEmptyExit();
+      });
+      
+      process.on("exit", () => {});
+    } catch (emptyServerError) {
+      console.error("Failed to start empty server:", emptyServerError);
+      process.exit(0);
+    }
   }
 }
 
