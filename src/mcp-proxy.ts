@@ -521,9 +521,21 @@ export const createServer = async () => {
     };
   });
 
+  // Define a more comprehensive cleanup function
   const cleanup = async () => {
-    await Promise.all(connectedClients.map(({ cleanup }) => cleanup()));
+    // Close all client connections
+    await Promise.all(connectedClients.map(async ({ client, cleanup }) => {
+      try {
+        // First run the client's cleanup function
+        await cleanup();
+        // Then explicitly close the client connection
+        await client.close();
+      } catch (error) {
+        logMcpRequest('error', `Error cleaning up client: ${error}`);
+      }
+    }));
   };
 
-  return { server, cleanup };
+  // Return connected clients as well to allow direct access for cleanup
+  return { server, cleanup, connectedClients };
 };

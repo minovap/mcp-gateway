@@ -5,7 +5,14 @@
   "license": "MIT",
   "description": "An MCP gateway that aggregates and serves multiple MCP resource servers through a single interface",
   "private": false,
-  "keywords": ["mcp", "proxy", "gateway", "claude", "anthropic", "batch"],
+  "keywords": [
+    "mcp",
+    "proxy",
+    "gateway",
+    "claude",
+    "anthropic",
+    "batch"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/minovap/mcp-gateway.git"
@@ -32,6 +39,7 @@
     "cors": "^2.8.5",
     "eventsource": "^3.0.2",
     "express": "^4.21.1",
+    "single-instance": "^0.0.1",
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
