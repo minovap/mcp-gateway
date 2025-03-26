@@ -27,7 +27,7 @@
   "scripts": {
     "dev": "nodemon --watch 'src/**' --ext 'ts,json' --ignore 'src/**/*.spec.ts' --exec 'tsx src/index.ts'",
     "dev:sse": "nodemon --watch 'src/**' --ext 'ts,json' --ignore 'src/**/*.spec.ts' --exec 'tsx src/sse.ts'",
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "bash ./build.sh",
     "prepublishOnly": "npm run build",
     "prepare": "npm run build",
     "watch": "tsc --watch",
@@ -40,6 +40,7 @@
     "eventsource": "^3.0.2",
     "express": "^4.21.1",
     "single-instance": "^0.0.1",
+    "tree-kill": "^1.2.2",
     "ws": "^8.18.1",
     "zod-to-json-schema": "^3.23.5"
   },
