@@ -1,6 +1,6 @@
 {
   "name": "@thinkware/mcp-gateway",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "Thinkware",
   "license": "MIT",
   "description": "An MCP gateway that aggregates and serves multiple MCP resource servers through a single interface",
