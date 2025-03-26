@@ -56,6 +56,10 @@ const createClient = (server: ServerConfigInternal): { client: Client | undefine
       // Always inject PATH from current process
       envVars['PATH'] = process.env.PATH || '';
 
+
+      server.transport.args = server.transport.args ?? [];
+      server.transport.args.push('--proxy-batch-mcp-server-process')
+
       transport = new StdioClientTransport({
         command: server.transport.command,
         args: server.transport.args,

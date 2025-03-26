@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Logger</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-connected { background-color: #4CAF50; }
+        .status-disconnected { background-color: #F44336; }
+        
+        .controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #2196F3;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background-color: #0b7dda; }
+        button.clear { background-color: #f44336; }
+        button.clear:hover { background-color: #d32f2f; }
+        
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .filter-level {
+            display: flex;
+            align-items: center;
+            margin-right: 8px;
+        }
+        
+        .log-container {
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .log-entry {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .log-entry:last-child { border-bottom: none; }
+        
+        .log-info { border-left: 4px solid #2196F3; }
+        .log-warn { border-left: 4px solid #FF9800; background-color: rgba(255, 152, 0, 0.05); }
+        .log-error { border-left: 4px solid #F44336; background-color: rgba(244, 67, 54, 0.05); }
+        .log-debug { border-left: 4px solid #9E9E9E; color: #757575; }
+        
+        .timestamp {
+            color: #757575;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        .level {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-right: 8px;
+            color: white;
+        }
+        .level-info { background-color: #2196F3; }
+        .level-warn { background-color: #FF9800; }
+        .level-error { background-color: #F44336; }
+        .level-debug { background-color: #9E9E9E; }
+        
+        .message { margin-right: 8px; }
+        
+        .data {
+            margin-top: 4px;
+            padding: 8px;
+            background-color: #f8f8f8;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        .hidden { display: none; }
+        
+        /* Search box styling */
+        .search-box {
+            flex-grow: 1;
+            position: relative;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        .search-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #757575;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MCP Logger</h1>
+        <div class="status">
+            <div class="status-indicator status-disconnected" id="status-indicator"></div>
+            <span id="connection-status">Disconnected</span>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search logs...">
+                <span class="search-icon">🔍</span>
+            </div>
+            
+            <div class="filter-controls">
+                <div class="filter-level">
+                    <input type="checkbox" id="filter-info" checked>
+                    <label for="filter-info">Info</label>
+                </div>
+                <div class="filter-level">
+                    <input type="checkbox" id="filter-warn" checked>
+                    <label for="filter-warn">Warn</label>
+                </div>
+                <div class="filter-level">
+                    <input type="checkbox" id="filter-error" checked>
+                    <label for="filter-error">Error</label>
+                </div>
+                <div class="filter-level">
+                    <input type="checkbox" id="filter-debug" checked>
+                    <label for="filter-debug">Debug</label>
+                </div>
+            </div>
+            
+            <button id="pause-button">Pause</button>
+            <button class="clear" id="clear-button">Clear</button>
+        </div>
+        
+        <div class="log-container" id="log-container"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const logContainer = document.getElementById('log-container');
+            const statusIndicator = document.getElementById('status-indicator');
+            const connectionStatus = document.getElementById('connection-status');
+            const pauseButton = document.getElementById('pause-button');
+            const clearButton = document.getElementById('clear-button');
+            const searchInput = document.getElementById('search-input');
+            
+            // Get filter checkboxes
+            const filterInfo = document.getElementById('filter-info');
+            const filterWarn = document.getElementById('filter-warn');
+            const filterError = document.getElementById('filter-error');
+            const filterDebug = document.getElementById('filter-debug');
+            
+            let isPaused = false;
+            let logs = [];
+            let ws = null;
+            
+            // Get WebSocket URL from the current page URL
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = window.location.hostname || 'localhost';
+            const wsPort = new URLSearchParams(window.location.search).get('port') || '8080';
+            const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}`;
+            
+            function connect() {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    statusIndicator.classList.remove('status-disconnected');
+                    statusIndicator.classList.add('status-connected');
+                    connectionStatus.textContent = 'Connected';
+                };
+                
+                ws.onclose = () => {
+                    statusIndicator.classList.remove('status-connected');
+                    statusIndicator.classList.add('status-disconnected');
+                    connectionStatus.textContent = 'Disconnected';
+                    
+                    // Try to reconnect after 5 seconds
+                    setTimeout(connect, 5000);
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'history') {
+                        // Clear existing logs and add history
+                        logs = [];
+                        data.messages.forEach(message => {
+                            logs.push(message);
+                            if (!isPaused) {
+                                appendLog(message);
+                            }
+                        });
+                    } else if (data.type === 'message') {
+                        logs.push(data.message);
+                        if (!isPaused) {
+                            appendLog(data.message);
+                        }
+                    }
+                };
+            }
+            
+            function appendLog(logMessage) {
+                // Check if log should be filtered out
+                if (
+                    (logMessage.level === 'info' && !filterInfo.checked) ||
+                    (logMessage.level === 'warn' && !filterWarn.checked) ||
+                    (logMessage.level === 'error' && !filterError.checked) ||
+                    (logMessage.level === 'debug' && !filterDebug.checked)
+                ) {
+                    return;
+                }
+                
+                // Check if log matches search term
+                const searchTerm = searchInput.value.toLowerCase();
+                if (searchTerm) {
+                    const messageText = logMessage.message.toLowerCase();
+                    const dataText = logMessage.data ? JSON.stringify(logMessage.data).toLowerCase() : '';
+                    if (!messageText.includes(searchTerm) && !dataText.includes(searchTerm)) {
+                        return;
+                    }
+                }
+                
+                const logEntry = document.createElement('div');
+                logEntry.classList.add('log-entry', `log-${logMessage.level}`);
+                
+                const timestamp = document.createElement('span');
+                timestamp.classList.add('timestamp');
+                timestamp.textContent = new Date(logMessage.timestamp).toLocaleTimeString();
+                
+                const level = document.createElement('span');
+                level.classList.add('level', `level-${logMessage.level}`);
+                level.textContent = logMessage.level.toUpperCase();
+                
+                const message = document.createElement('span');
+                message.classList.add('message');
+                message.textContent = logMessage.message;
+                
+                logEntry.appendChild(timestamp);
+                logEntry.appendChild(level);
+                logEntry.appendChild(message);
+                
+                if (logMessage.data) {
+                    const data = document.createElement('pre');
+                    data.classList.add('data');
+                    data.textContent = typeof logMessage.data === 'object' 
+                        ? JSON.stringify(logMessage.data, null, 2)
+                        : logMessage.data;
+                    logEntry.appendChild(data);
+                }
+                
+                logContainer.appendChild(logEntry);
+                
+                // Auto-scroll to bottom if not paused
+                if (!isPaused) {
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            }
+            
+            function refreshLogs() {
+                // Clear log container
+                logContainer.innerHTML = '';
+                
+                // Re-apply all filters
+                logs.forEach(log => appendLog(log));
+            }
+            
+            // Event listeners
+            pauseButton.addEventListener('click', () => {
+                isPaused = !isPaused;
+                pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
+                
+                if (!isPaused) {
+                    // When resuming, refresh the view to show new logs
+                    refreshLogs();
+                }
+            });
+            
+            clearButton.addEventListener('click', () => {
+                logs = [];
+                logContainer.innerHTML = '';
+            });
+            
+            // Filter changes
+            filterInfo.addEventListener('change', refreshLogs);
+            filterWarn.addEventListener('change', refreshLogs);
+            filterError.addEventListener('change', refreshLogs);
+            filterDebug.addEventListener('change', refreshLogs);
+            
+            // Search filtering
+            let searchTimeout;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(refreshLogs, 300);
+            });
+            
+            // Connect to WebSocket server
+            connect();
+        });
+    </script>
+</body>
+</html>

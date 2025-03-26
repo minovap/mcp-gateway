@@ -27,20 +27,33 @@ import * as path from 'path';
 
 global.EventSource = eventsource.EventSource
 
-// Use environment variable for logging
+// Import the logger
+import { logger } from './logger.js';
+
+// Use environment variable for logging to file (optional)
 export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
 
 // Utility to log MCP requests
 export const logMcpRequest = (method: string, params: any) => {
-  // Only log if log file path is provided
-  if (!MCP_LOG_FILE) return;
+  // Log to WebSocket via our logger
+  if (method === 'error') {
+    logger.error(method, params);
+  } else if (method === 'warn') {
+    logger.warn(method, params);
+  } else {
+    logger.info(method, params);
+  }
   
-  try {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${method} ${JSON.stringify(params, null, 2)}\n\n`;
-    fs.appendFileSync(MCP_LOG_FILE, logEntry);
-  } catch (error) {
-    // Silently fail if file can't be written
+  // If log file path is provided, also log to file
+  if (MCP_LOG_FILE) {
+    try {
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] ${method} ${JSON.stringify(params, null, 2)}\n\n`;
+      fs.appendFileSync(MCP_LOG_FILE, logEntry);
+    } catch (error) {
+      // Silently fail if file can't be written
+      logger.error('Failed to write to log file', { error });
+    }
   }
 };
 

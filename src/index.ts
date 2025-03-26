@@ -9,6 +9,8 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp-proxy.js";
 import { ConnectedClient } from './client.js';
+import { initWebSocketServer, closeWebSocketServer, logger } from './logger.js';
+import { initHttpServer, closeHttpServer, HTTP_PORT } from './web-server.js';
 
 /**
  * Forcefully disconnect clients and terminate their transport processes
@@ -61,6 +63,12 @@ function setupOrphanDetection(): NodeJS.Timeout | null {
 async function main() {
   // Set up orphan detection
   const orphanInterval = setupOrphanDetection();
+  
+  // Initialize logger web server and WebSocket server
+  logger.info('Starting MCP Gateway with Web Logger');
+  initWebSocketServer();
+  initHttpServer();
+  logger.info(`Logger web interface available at http://localhost:${HTTP_PORT}`);
 
   // Initialize the server
   const transport = new StdioServerTransport();
@@ -71,6 +79,11 @@ async function main() {
   const handleExit = async () => {
     // Clear orphan check interval
     if (orphanInterval) clearInterval(orphanInterval);
+    
+    // Close web and WebSocket servers
+    logger.info('Shutting down logger servers...');
+    await closeWebSocketServer();
+    await closeHttpServer();
 
     // First disconnect clients (closes transports properly)
     if (connectedClients) {
