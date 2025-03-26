@@ -18,8 +18,15 @@ import treeKill from 'tree-kill'
 async function main() {
   const transport = new StdioServerTransport();
 
-  initWebSocketServer();
-  initHttpServer();
+  // wait a little to make sure the ports are available if Claude exited and restarted directly again
+  setTimeout(() => {
+    try {
+      initWebSocketServer();
+      initHttpServer();
+    } catch (error) {
+
+    }
+  }, 5000);
 
   const { server, cleanup } = await createServer();
   await server.connect(transport);

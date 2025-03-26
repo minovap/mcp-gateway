@@ -48,6 +48,8 @@ export const initWebSocketServer = (): WebSocketServer => {
       messageEmitter.off('message', messageHandler);
     });
   });
+
+  logger = createLogger();
   
   return wss;
 };
@@ -63,6 +65,15 @@ export const closeWebSocketServer = async (): Promise<void> => {
       wss = null;
       console.error('WebSocket logger server closed');
       resolve();
+      logger = ({
+        info: () => {},
+        error: () => {},
+        warn: () => {},
+        debug: () => {},
+        log: () => {},
+        batch: () => {},
+        tool: () => {},
+      });
     });
   });
 };
@@ -81,6 +92,18 @@ const MAX_RECENT_MESSAGES = 100;
 const getRecentMessages = (): LogMessage[] => {
   return [...recentMessages];
 };
+
+
+// Export a default logger instance
+export let logger: any = ({
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    debug: () => {},
+    log: () => {},
+    batch: () => {},
+    tool: () => {},
+});
 
 /**
  * Create a logger that sends messages via WebSocket
@@ -136,8 +159,6 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
   };
 };
 
-// Export a default logger instance
-export const logger = createLogger();
 
 // Add a helper to get the WebSocket URL
 export const getWebSocketUrl = () => {
