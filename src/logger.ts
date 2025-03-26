@@ -120,6 +120,7 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
       
       consoleMethod(`[${level.toUpperCase()}] ${message}`, data !== undefined ? data : '');
     }
+
     
     return logMessage;
   };

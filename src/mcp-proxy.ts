@@ -34,17 +34,7 @@ import { logger } from './logger.js';
 export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
 
 // Utility to log MCP requests
-export const logMcpRequest = (method: string, params: any) => {
-  // Log to WebSocket via our logger
-  if (method === 'error') {
-    logger.error(method, params);
-  } else if (method === 'warn') {
-    logger.warn(method, params);
-  } else {
-    logger.info(method, params);
-  }
-  
-  // If log file path is provided, also log to file
+export const logToFile = (method: 'error'|'warn'|'info', ...params: any) => {
   if (MCP_LOG_FILE) {
     try {
       const timestamp = new Date().toISOString();
@@ -52,9 +42,12 @@ export const logMcpRequest = (method: string, params: any) => {
       fs.appendFileSync(MCP_LOG_FILE, logEntry);
     } catch (error) {
       // Silently fail if file can't be written
-      logger.error('Failed to write to log file', { error });
     }
   }
+};
+// Utility to log MCP requests
+export const logToWebsocket = (method: 'error'|'warn'|'info'|'log'|'debug', message: string, data: any) => {
+  logger[method](message, data);
 };
 
 export const createServer = async () => {
@@ -63,12 +56,16 @@ export const createServer = async () => {
   // Convert the server map to array format expected by createClients
   const serversArray = serversMapToArray(config.proxyBatchMcpServers);
   const connectedClients = await createClients(serversArray);
-  logMcpRequest('info', `Connected to ${connectedClients.length} servers`);
+  logToFile('info', `Connected to ${connectedClients.length} servers`);
 
   // Maps to track which client owns which resource
   const toolToClientMap = new Map<string, ConnectedClient>();
   const resourceToClientMap = new Map<string, ConnectedClient>();
   const promptToClientMap = new Map<string, ConnectedClient>();
+  
+  // Track servers that have failed to fetch prompts or resources so we don't retry them
+  const failedPromptServers = new Map<string, boolean>();
+  const failedResourceServers = new Map<string, boolean>();
 
   const server = new Server(
     {
@@ -147,7 +144,7 @@ export const createServer = async () => {
           allTools.push(...toolsWithSource);
         }
       } catch (error) {
-        logMcpRequest('error', `Error fetching tools from ${connectedClient.name}: ${error}`);
+        logToFile('error', `Error fetching tools from ${connectedClient.name}: ${error}`);
       }
     }
 
@@ -157,13 +154,13 @@ export const createServer = async () => {
   // Call Tool Handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Log the request
-    logMcpRequest('tools/call', request.params);
+    logToFile('info', 'tools/call', request.params);
 
     const { name, arguments: args } = request.params;
     
     // Check if this is our batch request tool
     if (name === 'batch_request') {
-      logMcpRequest('info', 'Processing batch request');
+      logToFile('info', 'Processing batch request');
       try {
         let batchArgs;
         try {
@@ -184,7 +181,7 @@ export const createServer = async () => {
             ]
           };
         }
-        logMcpRequest('info', `Received batch request with ${batchArgs.requests.length} sub-requests`);
+        logToFile('info', `Received batch request with ${batchArgs.requests.length} sub-requests`);
         
         // Check for duplicate IDs
         const idCounts = new Map<string, number>();
@@ -239,7 +236,7 @@ export const createServer = async () => {
           }
           
           try {
-            logMcpRequest('info', `Executing batch sub-request for tool: ${req.tool_name}`);
+            logToFile('info', `Executing batch sub-request for tool: ${req.tool_name}`);
             const result = await clientForTool.client.request(
               {
                 method: 'tools/call',
@@ -253,7 +250,7 @@ export const createServer = async () => {
             );
 
 
-            logMcpRequest('tools->result', {
+            logToFile('info', 'tools->result', {
               tool_name: req.tool_name,
               success: true,
               result: result
@@ -271,7 +268,7 @@ export const createServer = async () => {
               };
             }
           } catch (error) {
-            logMcpRequest('error', `Error calling tool ${req.tool_name} through ${clientForTool.name}: ${error}`);
+            logToFile('error', `Error calling tool ${req.tool_name} through ${clientForTool.name}: ${error}`);
             return {
               tool_name: req.tool_name,
               success: false,
@@ -292,7 +289,7 @@ export const createServer = async () => {
           ]
         };
       } catch (error) {
-        logMcpRequest('error', `Error processing batch request: ${error}`);
+        logToFile('error', `Error processing batch request: ${error}`);
         throw error;
       }
     }
@@ -309,7 +306,7 @@ export const createServer = async () => {
     }
     
     try {
-      logMcpRequest('info', `Executing direct tool call for: ${name}`);
+      logToFile('info', `Executing direct tool call for: ${name}`);
       const result = await clientForTool.client.request(
         {
           method: 'tools/call',
@@ -345,7 +342,7 @@ export const createServer = async () => {
         }]
       };
     } catch (error) {
-      logMcpRequest('error', `Error calling tool ${name}: ${error}`);
+      logToFile('error', `Error calling tool ${name}: ${error}`);
       return {
         content: [{
           type: "text",
@@ -365,7 +362,7 @@ export const createServer = async () => {
     }
 
     try {
-      logMcpRequest('info', `Forwarding prompt request: ${name}`);
+      logToFile('info', `Forwarding prompt request: ${name}`);
 
       // Match the exact structure from the example code
       const response = await clientForPrompt.client.request(
@@ -382,10 +379,10 @@ export const createServer = async () => {
         GetPromptResultSchema
       );
 
-      logMcpRequest('info', `Prompt result: ${JSON.stringify(response)}`);
+      logToFile('info', `Prompt result: ${JSON.stringify(response)}`);
       return response;
     } catch (error) {
-      logMcpRequest('error', `Error getting prompt from ${clientForPrompt.name}: ${error}`);
+      logToFile('error', `Error getting prompt from ${clientForPrompt.name}: ${error}`);
       throw error;
     }
   });
@@ -396,6 +393,12 @@ export const createServer = async () => {
     promptToClientMap.clear();
 
     for (const connectedClient of connectedClients) {
+      // Skip servers that have previously failed to fetch prompts
+      if (failedPromptServers.has(connectedClient.name)) {
+        //Skipping prompt fetch from ${connectedClient.name} due to previous failure
+        continue;
+      }
+
       try {
         const result = await connectedClient.client.request(
           {
@@ -421,7 +424,10 @@ export const createServer = async () => {
           allPrompts.push(...promptsWithSource);
         }
       } catch (error) {
-        logMcpRequest('error', `Error fetching prompts from ${connectedClient.name}: ${error}`);
+        // Mark this server as failed so we don't try it again
+        failedPromptServers.set(connectedClient.name, true);
+        //logMcpRequest('error', `Error fetching prompts from ${connectedClient.name}: ${error}`);
+        //logMcpRequest('info', `Added ${connectedClient.name} to failed prompt servers list - will skip in future requests`);
       }
     }
 
@@ -431,12 +437,19 @@ export const createServer = async () => {
     };
   });
 
+
   // List Resources Handler
   server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
     const allResources: z.infer<typeof ListResourcesResultSchema>['resources'] = [];
     resourceToClientMap.clear();
 
     for (const connectedClient of connectedClients) {
+      // Skip servers that have previously failed to fetch resources
+      if (failedResourceServers.has(connectedClient.name)) {
+        // Skipping resources fetch from ${connectedClient.name} due to previous failure
+        continue;
+      }
+
       try {
         const result = await connectedClient.client.request(
           {
@@ -460,7 +473,10 @@ export const createServer = async () => {
           allResources.push(...resourcesWithSource);
         }
       } catch (error) {
-        logMcpRequest('error', `Error fetching resources from ${connectedClient.name}: ${error}`);
+        // Mark this server as failed so we don't try it again
+        failedResourceServers.set(connectedClient.name, true);
+        //logMcpRequest('error', `Error fetching resources from ${connectedClient.name}: ${error}`);
+        //logMcpRequest('info', `Added ${connectedClient.name} to failed resource servers list - will skip in future requests`);
       }
     }
 
@@ -491,7 +507,7 @@ export const createServer = async () => {
         ReadResourceResultSchema
       );
     } catch (error) {
-      logMcpRequest('error', `Error reading resource from ${clientForResource.name}: ${error}`);
+      logToFile('error', `Error reading resource from ${clientForResource.name}: ${error}`);
       throw error;
     }
   });
@@ -524,7 +540,7 @@ export const createServer = async () => {
           allTemplates.push(...templatesWithSource);
         }
       } catch (error) {
-        logMcpRequest('error', `Error fetching resource templates from ${connectedClient.name}: ${error}`);
+        logToFile('error', `Error fetching resource templates from ${connectedClient.name}: ${error}`);
       }
     }
 
@@ -534,11 +550,29 @@ export const createServer = async () => {
     };
   });
 
+  // Reset the failed servers lists
+  const resetFailedServers = () => {
+    const previousPromptCount = failedPromptServers.size;
+    const previousResourceCount = failedResourceServers.size;
+    failedPromptServers.clear();
+    failedResourceServers.clear();
+    logToFile('info', `Reset failed servers lists (cleared ${previousPromptCount} prompt servers and ${previousResourceCount} resource servers)`);
+  };
+  
+  // For backward compatibility
+  const resetFailedPromptServers = () => {
+    const previousCount = failedPromptServers.size;
+    failedPromptServers.clear();
+    logToFile('info', `Reset failed prompt servers list (cleared ${previousCount} entries)`);
+  };
+
   // Define a more comprehensive cleanup function
   const cleanup = async () => {
     await Promise.all(connectedClients.map(({ cleanup }) => cleanup()));
+    // Reset failed servers tracking on cleanup
+    resetFailedServers();
   };
 
   // Return connected clients as well to allow direct access for cleanup
-  return { server, cleanup };
+  return { server, cleanup, resetFailedPromptServers, resetFailedServers };
 };

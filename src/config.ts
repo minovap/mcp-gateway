@@ -1,7 +1,7 @@
 import { readFile, access } from 'fs/promises';
 import { resolve, join } from 'path';
 import { homedir, platform } from 'os';
-import { logMcpRequest } from './mcp-proxy.js';
+import { logToFile } from './mcp-proxy.js';
 
 // Define server-specific configuration
 export interface ServerConfig {
@@ -52,7 +52,7 @@ export function serversMapToArray(serversMap: Record<string, ServerConfig>): Arr
           transport.env = config.env;
         }
       } else {
-        logMcpRequest('warn', `Server ${name} has invalid configuration: missing command or url`);
+        logToFile('warn', `Server ${name} has invalid configuration: missing command or url`);
         transport = { command: 'echo', args: ['Server has invalid configuration'] };
       }
       
@@ -161,10 +161,10 @@ export const loadConfig = async (): Promise<Config> => {
     }
     
     // If no config file found, return empty config
-    logMcpRequest('warn', 'No config file found. Using empty configuration.');
+    logToFile('warn', 'No config file found. Using empty configuration.');
     return { proxyBatchMcpServers: {} };
   } catch (error) {
-    logMcpRequest('error', `Error loading configuration: ${error}`);
+    logToFile('error', `Error loading configuration: ${error}`);
     // Return empty config if an error occurs
     return { proxyBatchMcpServers: {} };
   }
