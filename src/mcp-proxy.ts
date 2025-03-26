@@ -1,5 +1,5 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { batchRequestTool, BatchRequestSchema, BatchResponseSchema } from "./tools/batch-request.js";
+import { batchRequestTool, batchInputSchema  } from "./tools/batch-request.js";
 import {
   CallToolRequestSchema,
   GetPromptRequestSchema,
@@ -168,7 +168,7 @@ export const createServer = async () => {
           if (!safeArgs.requests) {
             safeArgs.requests = [];
           }
-          batchArgs = BatchRequestSchema.parse(safeArgs);
+          batchArgs = batchInputSchema.parse(safeArgs);
           logToWebsocket('batch', `➡️ ${batchArgs.purpose}`, batchArgs.requests);
         } catch (parseError) {
           return {
