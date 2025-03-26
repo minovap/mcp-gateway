@@ -12,8 +12,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <!-- Import Babel for JSX support -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.15/babel.min.js"></script>
+    <!-- Import highlight.js for code syntax highlighting -->
+    <link id="highlightjs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <!-- Load additional languages for highlight.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/html.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/sql.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
+    <script>
+        // Initialize highlight.js
+        document.addEventListener('DOMContentLoaded', () => {
+            hljs.configure({ languages: [] });
+            hljs.highlightAll();
+        });
+    </script>
     <div id="root"></div>
 
     <script type="text/babel">
@@ -28,13 +47,60 @@
             </div>
         );
 
+        // Define themes inside the React code scope
+        const HIGHLIGHT_THEMES = {
+            'atom-one-dark': 'Atom One Dark',
+            'monokai': 'Monokai',
+            'dracula': 'Dracula',
+            'nord': 'Nord',
+            'night-owl': 'Night Owl',
+            'vs2015': 'Visual Studio 2015',
+            'rainbow': 'Rainbow',
+            'github-dark': 'GitHub Dark'
+        };
+        
+        // Function to change the theme (defined in React scope)
+        const changeTheme = (themeName) => {
+            const link = document.getElementById('highlightjs-theme');
+            if (link) {
+                link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/${themeName}.min.css`;
+                localStorage.setItem('highlightjs-theme', themeName);
+            }
+        };
+
         // Header Component
-        const Header = ({ isConnected }) => (
-            <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center mb-5">
-                <h1 className="text-xl font-semibold">MCP Logger</h1>
-                <ConnectionStatus isConnected={isConnected} />
-            </header>
-        );
+        const Header = ({ isConnected }) => {
+            const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('highlightjs-theme') || 'atom-one-dark');
+            
+            const handleThemeChange = (e) => {
+                const newTheme = e.target.value;
+                setCurrentTheme(newTheme);
+                changeTheme(newTheme);
+            };
+            
+            return (
+                <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center mb-5">
+                    <h1 className="text-xl font-semibold">MCP Logger</h1>
+                    <div className="flex items-center space-x-4">
+                        <div>
+                            <label htmlFor="theme-select" className="mr-2 text-sm">Theme:</label>
+                            <select 
+                                id="theme-select" 
+                                className="bg-gray-700 text-white text-sm p-1 rounded"
+                                value={currentTheme}
+                                onChange={handleThemeChange}
+                            >
+                                {Object.entries(HIGHLIGHT_THEMES).map(([value, name]) => (
+                                    <option key={value} value={value}>{name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <ConnectionStatus isConnected={isConnected} />
+                    </div>
+                </header>
+            );
+        };
+        
 
         // Search Component
         const SearchBox = ({ searchTerm, setSearchTerm }) => (
@@ -95,24 +161,101 @@
 
         // Log Entry Component
         const LogEntry = ({ log }) => {
+            // Function to guess the language based on content
+            const guessLanguage = (content) => {
+                // Default to json for object data
+                if (typeof content === 'object') return 'json';
+                
+                const str = String(content);
+                
+                // HTML detection
+                if (str.startsWith('<!DOCTYPE html>') || str.includes('<html') || 
+                    (str.includes('<') && str.includes('</') && str.includes('>'))) {
+                    return 'html';
+                }
+                
+                // XML detection
+                if (str.startsWith('<?xml') || (str.includes('<') && str.includes('</') && 
+                    str.includes('xmlns='))) {
+                    return 'xml';
+                }
+                
+                // JavaScript/TypeScript detection
+                if (str.includes('function') && (str.includes('{') || str.includes('=>'))) return 'javascript';
+                if (str.includes('import ') && str.includes('from ')) return 'typescript';
+                if (str.includes('class ') && str.includes('extends ')) return 'typescript';
+                if (str.includes('const ') || str.includes('let ') || str.includes('var ')) return 'javascript';
+                if (str.includes('export') && (str.includes('interface') || str.includes('type '))) return 'typescript';
+                
+                // CSS detection
+                if (str.includes('{') && str.includes('}') && 
+                   (str.includes('px') || str.includes('em') || str.includes('rgb') || 
+                    str.includes('margin') || str.includes('padding'))) {
+                    return 'css';
+                }
+                
+                // SQL detection
+                if ((str.includes('SELECT') || str.includes('UPDATE') || str.includes('INSERT INTO') || 
+                     str.includes('DELETE FROM')) && 
+                    (str.includes('FROM') || str.includes('WHERE') || str.includes('VALUES'))) {
+                    return 'sql';
+                }
+                
+                // Bash/Shell detection
+                if (str.startsWith('#!') || str.startsWith('$') || str.includes('apt-get') || 
+                    str.includes('sudo') || str.includes('chmod') || str.includes('./')) {
+                    return 'bash';
+                }
+                
+                // JSON detection
+                try {
+                    if (str.trim().startsWith('{') || str.trim().startsWith('[')) {
+                        JSON.parse(str);
+                        return 'json';
+                    }
+                } catch (e) {
+                    // Not valid JSON, continue with other checks
+                }
+                
+                // Try to use highlight.js auto detection
+                try {
+                    const result = hljs.highlightAuto(str);
+                    if (result && result.language && result.language !== 'plaintext') {
+                        return result.language;
+                    }
+                } catch (e) {
+                    // Auto detection failed, continue
+                }
+                
+                // Default for unknown
+                return 'plaintext';
+            };
+            const [isExpanded, setIsExpanded] = useState(false);
             const levelColorClass = {
                 info: 'border-blue-500',
                 warn: 'border-yellow-500 bg-yellow-50',
                 error: 'border-red-500 bg-red-50',
-                debug: 'border-gray-500 text-gray-600'
+                debug: 'border-gray-500 text-gray-600',
+                batch: 'border-purple-500 bg-purple-50',
+                tool: 'border-green-500 bg-green-50'
             };
 
             const levelBadgeClass = {
                 info: 'bg-blue-500',
                 warn: 'bg-yellow-500',
                 error: 'bg-red-500',
-                debug: 'bg-gray-500'
+                debug: 'bg-gray-500',
+                batch: 'bg-purple-500',
+                tool: 'bg-green-500'
             };
 
             return (
-                <div className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words`}>
+                <div 
+                    className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
+                    onClick={() => log.data && setIsExpanded(!isExpanded)}
+                >
                     <span className="text-gray-500 text-xs mr-2">
-                        {new Date(log.timestamp).toLocaleTimeString()}
+                        {new Date(log.timestamp).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3})}
                     </span>
                     
                     <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${levelBadgeClass[log.level]}`}>
@@ -122,11 +265,32 @@
                     <span className="mr-2">{log.message}</span>
                     
                     {log.data && (
-                        <pre className="mt-1 p-2 bg-gray-100 rounded overflow-x-auto">
-                            {typeof log.data === 'object' 
-                                ? JSON.stringify(log.data, null, 2)
-                                : log.data}
-                        </pre>
+                        <>
+                            <span 
+                                className="absolute right-3 top-3 text-xs text-blue-600"
+                            >
+                                {isExpanded ? '▼' : '▶'}
+                            </span>
+                            {isExpanded && (
+                                <pre className="mt-2 p-2 bg-gray-100 rounded overflow-x-auto">
+                                    <code ref={el => {
+                                        if (el) {
+                                            const content = typeof log.data === 'object' 
+                                                ? JSON.stringify(log.data, null, 2)
+                                                : String(log.data);
+                                            
+                                            // Determine the language
+                                            const language = guessLanguage(log.data);
+                                            el.className = `hljs language-${language}`;
+                                            
+                                            el.textContent = content;
+                                            hljs.highlightElement(el);
+                                        }
+                                    }}>
+                                    </code>
+                                </pre>
+                            )}
+                        </>
                     )}
                 </div>
             );
@@ -159,16 +323,25 @@
 
         // Main App Component
         const App = () => {
+            // Initialize the theme from localStorage on app load
+            useEffect(() => {
+                const savedTheme = localStorage.getItem('highlightjs-theme') || 'atom-one-dark';
+                changeTheme(savedTheme);
+            }, []);
+            
             const [isConnected, setIsConnected] = useState(false);
             const [logs, setLogs] = useState([]);
             const [allLogs, setAllLogs] = useState([]);
             const [isPaused, setIsPaused] = useState(false);
+            const lastBatchStart = useRef(null);
             const [searchTerm, setSearchTerm] = useState('');
             const [filters, setFilters] = useState({
                 info: true,
                 warn: true,
                 error: true,
-                debug: true
+                debug: true,
+                batch: true,
+                tool: true
             });
             
             const wsRef = useRef(null);
@@ -201,10 +374,92 @@
                         const data = JSON.parse(event.data);
                         
                         if (data.type === 'history') {
-                            setAllLogs(data.messages);
+                            // Process any batch messages in history
+                            const processedMessages = processBatchMessages(data.messages);
+                            setAllLogs(processedMessages);
                         } else if (data.type === 'message') {
-                            setAllLogs(prev => [...prev, data.message]);
+                            const message = data.message;
+                            
+                            // Handle batch messages
+                            if (message.level === 'batch') {
+                                // Simple check for [done] messages
+                                const isDoneMessage = message.message && message.message.trim() === '[done]';
+                                
+                                if (isDoneMessage) {
+                                    // Get the timestamp of the most recent batch start (if any)
+                                    const lastBatchTimestamp = lastBatchStart.current;
+                                    
+                                    if (lastBatchTimestamp) {
+                                        const endTime = new Date(message.timestamp).getTime();
+                                        const durationSec = ((endTime - lastBatchTimestamp) / 1000).toFixed(3);
+                                        
+                                        // Create modified message
+                                        const modifiedMessage = {
+                                            ...message,
+                                            message: `✅ ${durationSec}s`
+                                        };
+                                        
+                                        // Reset the last batch start timestamp
+                                        lastBatchStart.current = null;
+                                        
+                                        setAllLogs(prev => [...prev, modifiedMessage]);
+                                        return;
+                                    }
+                                } else {
+                                    // Any non-[done] batch message is considered a start
+                                    if (message.message && message.message.trim() !== '[done]') {
+                                        // Store the timestamp of this batch start
+                                        lastBatchStart.current = new Date(message.timestamp).getTime();
+                                    }
+                                }
+                            }
+                            
+                            // Default handling for non-special messages
+                            setAllLogs(prev => [...prev, message]);
                         }
+                    };
+                    
+                    // We're using a simpler sequential approach now, no need for batch ID helpers
+                    
+                    // Process batch messages in history
+                    const processBatchMessages = (messages) => {
+                        let lastStartTime = null;
+                        const processedMessages = [];
+                        
+                        for (let i = 0; i < messages.length; i++) {
+                            const msg = messages[i];
+                            
+                            // Only process batch level messages
+                            if (msg.level !== 'batch') {
+                                processedMessages.push(msg);
+                                continue;
+                            }
+                            
+                            // Check if this is a [done] message
+                            const isDoneMessage = msg.message && msg.message.trim() === '[done]';
+                            
+                            if (isDoneMessage && lastStartTime) {
+                                // Create a modified message with the timing information
+                                const endTime = new Date(msg.timestamp).getTime();
+                                const durationSec = ((endTime - lastStartTime) / 1000).toFixed(3);
+                                
+                                processedMessages.push({
+                                    ...msg,
+                                    message: `✅ ${durationSec}s`
+                                });
+                                
+                                // Reset the last start time
+                                lastStartTime = null;
+                            } else {
+                                // If not a [done] message, consider it a start unless it actually contains [done]
+                                if (msg.message && msg.message.trim() !== '[done]') {
+                                    lastStartTime = new Date(msg.timestamp).getTime();
+                                }
+                                processedMessages.push(msg);
+                            }
+                        }
+                        
+                        return processedMessages;
                     };
                 };
                 

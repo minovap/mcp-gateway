@@ -3,12 +3,14 @@ import { z } from 'zod';
 // Define the schema for an individual request in the batch
 export const BatchRequestItemSchema = z.object({
   tool_name: z.string().describe('The name of the tool to call'),
+  purpose: z.string().describe('A sentence describing the goal this tool call helps achieve.'),
   arguments: z.record(z.any()).optional().describe('The arguments to pass to the tool'),
   id: z.string().describe('MUST USE THIS AS ID FORMAT!!! {tool_name}_{sequential number}')
 });
 
 // Define the schema for the batch request
 export const BatchRequestSchema = z.object({
+  purpose: z.string().describe('A sentence describing the goal this batch call helps achieve.'),
   requests: z.array(BatchRequestItemSchema).describe('An array of tool requests to execute in sequence')
 });
 
@@ -71,6 +73,10 @@ export const batchRequestTool = {
   inputSchema: {
     type: "object" as const,
     properties: {
+      purpose: {
+        type: "string" as const,
+        description: 'A sentence describing the goal this batch call helps achieve.'
+      },
       requests: {
         type: "array" as const,
         items: {
@@ -87,12 +93,16 @@ export const batchRequestTool = {
             id: {
               type: "string" as const,
               description: 'A unique identifier for the tool request'
+            },
+            purpose: {
+              type: "string" as const,
+              description: 'A sentence describing the goal this tool call helps achieve.'
             }
           },
-          required: ['tool_name', 'id']
+          required: ['tool_name', 'id', 'purpose']
         }
       }
     },
-    required: ['requests']
+    required: ['requests', 'purpose']
   }
 };

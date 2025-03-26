@@ -33,7 +33,6 @@ import { logger } from './logger.js';
 // Use environment variable for logging to file (optional)
 export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
 
-// Utility to log MCP requests
 export const logToFile = (method: 'error'|'warn'|'info', ...params: any) => {
   if (MCP_LOG_FILE) {
     try {
@@ -45,8 +44,8 @@ export const logToFile = (method: 'error'|'warn'|'info', ...params: any) => {
     }
   }
 };
-// Utility to log MCP requests
-export const logToWebsocket = (method: 'error'|'warn'|'info'|'log'|'debug', message: string, data: any) => {
+
+export const logToWebsocket = (method: 'error'|'warn'|'info'|'log'|'debug'|'batch'|'tool', message: string, data: any) => {
   logger[method](message, data);
 };
 
@@ -170,6 +169,7 @@ export const createServer = async () => {
             safeArgs.requests = [];
           }
           batchArgs = BatchRequestSchema.parse(safeArgs);
+          logToWebsocket('batch', `➡️ ${batchArgs.purpose}`, batchArgs.requests);
         } catch (parseError) {
           return {
             content: [
@@ -279,6 +279,9 @@ export const createServer = async () => {
         
         // Format the batch result according to the specified format
         //const batch_request_result_object = { results };
+        
+        // Log batch request completion
+        logToWebsocket('batch', `[done]`, results);
         
         return {
           content: [

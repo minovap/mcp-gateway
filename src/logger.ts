@@ -70,7 +70,7 @@ export const closeWebSocketServer = async (): Promise<void> => {
 // Store recent messages for new clients
 interface LogMessage {
   timestamp: string;
-  level: 'info' | 'error' | 'warn' | 'debug';
+  level: 'info' | 'error' | 'warn' | 'debug' | 'batch' | 'tool';
   message: string;
   data?: any;
 }
@@ -131,6 +131,8 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
     warn: (message: string, data?: any) => sendLog('warn', message, data),
     debug: (message: string, data?: any) => sendLog('debug', message, data),
     log: (message: string, data?: any) => sendLog('info', message, data),
+    batch: (message: string, data?: any) => sendLog('batch', message, data),
+    tool: (message: string, data?: any) => sendLog('tool', message, data),
   };
 };
 
