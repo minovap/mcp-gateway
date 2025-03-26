@@ -4,353 +4,281 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP Logger</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            background-color: #333;
-            color: white;
-            margin-bottom: 20px;
-        }
-        .status {
-            display: flex;
-            align-items: center;
-        }
-        .status-indicator {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        .status-connected { background-color: #4CAF50; }
-        .status-disconnected { background-color: #F44336; }
-        
-        .controls {
-            margin-bottom: 15px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            background-color: #2196F3;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover { background-color: #0b7dda; }
-        button.clear { background-color: #f44336; }
-        button.clear:hover { background-color: #d32f2f; }
-        
-        .filter-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .filter-level {
-            display: flex;
-            align-items: center;
-            margin-right: 8px;
-        }
-        
-        .log-container {
-            height: calc(100vh - 180px);
-            overflow-y: auto;
-            background-color: #fff;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .log-entry {
-            padding: 8px 12px;
-            border-bottom: 1px solid #eee;
-            font-family: 'Consolas', monospace;
-            font-size: 14px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .log-entry:last-child { border-bottom: none; }
-        
-        .log-info { border-left: 4px solid #2196F3; }
-        .log-warn { border-left: 4px solid #FF9800; background-color: rgba(255, 152, 0, 0.05); }
-        .log-error { border-left: 4px solid #F44336; background-color: rgba(244, 67, 54, 0.05); }
-        .log-debug { border-left: 4px solid #9E9E9E; color: #757575; }
-        
-        .timestamp {
-            color: #757575;
-            font-size: 12px;
-            margin-right: 8px;
-        }
-        .level {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 12px;
-            margin-right: 8px;
-            color: white;
-        }
-        .level-info { background-color: #2196F3; }
-        .level-warn { background-color: #FF9800; }
-        .level-error { background-color: #F44336; }
-        .level-debug { background-color: #9E9E9E; }
-        
-        .message { margin-right: 8px; }
-        
-        .data {
-            margin-top: 4px;
-            padding: 8px;
-            background-color: #f8f8f8;
-            border-radius: 3px;
-            overflow-x: auto;
-        }
-        .hidden { display: none; }
-        
-        /* Search box styling */
-        .search-box {
-            flex-grow: 1;
-            position: relative;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #2196F3;
-        }
-        .search-icon {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #757575;
-        }
-    </style>
+    <!-- Import Tailwind CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <!-- Import React and ReactDOM -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Import Babel for JSX support -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.15/babel.min.js"></script>
 </head>
-<body>
-    <header>
-        <h1>MCP Logger</h1>
-        <div class="status">
-            <div class="status-indicator status-disconnected" id="status-indicator"></div>
-            <span id="connection-status">Disconnected</span>
-        </div>
-    </header>
-    
-    <div class="container">
-        <div class="controls">
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="Search logs...">
-                <span class="search-icon">🔍</span>
-            </div>
-            
-            <div class="filter-controls">
-                <div class="filter-level">
-                    <input type="checkbox" id="filter-info" checked>
-                    <label for="filter-info">Info</label>
-                </div>
-                <div class="filter-level">
-                    <input type="checkbox" id="filter-warn" checked>
-                    <label for="filter-warn">Warn</label>
-                </div>
-                <div class="filter-level">
-                    <input type="checkbox" id="filter-error" checked>
-                    <label for="filter-error">Error</label>
-                </div>
-                <div class="filter-level">
-                    <input type="checkbox" id="filter-debug" checked>
-                    <label for="filter-debug">Debug</label>
-                </div>
-            </div>
-            
-            <button id="pause-button">Pause</button>
-            <button class="clear" id="clear-button">Clear</button>
-        </div>
-        
-        <div class="log-container" id="log-container"></div>
-    </div>
+<body class="bg-gray-100 text-gray-800">
+    <div id="root"></div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const logContainer = document.getElementById('log-container');
-            const statusIndicator = document.getElementById('status-indicator');
-            const connectionStatus = document.getElementById('connection-status');
-            const pauseButton = document.getElementById('pause-button');
-            const clearButton = document.getElementById('clear-button');
-            const searchInput = document.getElementById('search-input');
-            
-            // Get filter checkboxes
-            const filterInfo = document.getElementById('filter-info');
-            const filterWarn = document.getElementById('filter-warn');
-            const filterError = document.getElementById('filter-error');
-            const filterDebug = document.getElementById('filter-debug');
-            
-            let isPaused = false;
-            let logs = [];
-            let ws = null;
-            
-            // Get WebSocket URL from the current page URL
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsHost = window.location.hostname || 'localhost';
-            const wsPort = new URLSearchParams(window.location.search).get('port') || '8080';
-            const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}`;
-            
-            function connect() {
-                ws = new WebSocket(wsUrl);
+    <script type="text/babel">
+        // Create React components
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // Connection Status Component
+        const ConnectionStatus = ({ isConnected }) => (
+            <div className="flex items-center">
+                <div className={`w-2.5 h-2.5 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+            </div>
+        );
+
+        // Header Component
+        const Header = ({ isConnected }) => (
+            <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center mb-5">
+                <h1 className="text-xl font-semibold">MCP Logger</h1>
+                <ConnectionStatus isConnected={isConnected} />
+            </header>
+        );
+
+        // Search Component
+        const SearchBox = ({ searchTerm, setSearchTerm }) => (
+            <div className="relative flex-grow">
+                <input 
+                    type="text" 
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search logs..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">🔍</span>
+            </div>
+        );
+
+        // Filter Component
+        const LevelFilters = ({ filters, toggleFilter }) => (
+            <div className="flex items-center space-x-3">
+                {Object.keys(filters).map(level => (
+                    <div key={level} className="flex items-center">
+                        <input
+                            type="checkbox"
+                            id={`filter-${level}`}
+                            checked={filters[level]}
+                            onChange={() => toggleFilter(level)}
+                            className="mr-1"
+                        />
+                        <label htmlFor={`filter-${level}`} className="text-sm">
+                            {level.charAt(0).toUpperCase() + level.slice(1)}
+                        </label>
+                    </div>
+                ))}
+            </div>
+        );
+
+        // Controls Component
+        const Controls = ({ searchTerm, setSearchTerm, filters, toggleFilter, isPaused, togglePause, clearLogs }) => (
+            <div className="flex items-center space-x-4 mb-4">
+                <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
-                ws.onopen = () => {
-                    statusIndicator.classList.remove('status-disconnected');
-                    statusIndicator.classList.add('status-connected');
-                    connectionStatus.textContent = 'Connected';
-                };
+                <LevelFilters filters={filters} toggleFilter={toggleFilter} />
                 
-                ws.onclose = () => {
-                    statusIndicator.classList.remove('status-connected');
-                    statusIndicator.classList.add('status-disconnected');
-                    connectionStatus.textContent = 'Disconnected';
+                <button 
+                    onClick={togglePause}
+                    className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200"
+                >
+                    {isPaused ? 'Resume' : 'Pause'}
+                </button>
+                
+                <button 
+                    onClick={clearLogs}
+                    className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200"
+                >
+                    Clear
+                </button>
+            </div>
+        );
+
+        // Log Entry Component
+        const LogEntry = ({ log }) => {
+            const levelColorClass = {
+                info: 'border-blue-500',
+                warn: 'border-yellow-500 bg-yellow-50',
+                error: 'border-red-500 bg-red-50',
+                debug: 'border-gray-500 text-gray-600'
+            };
+
+            const levelBadgeClass = {
+                info: 'bg-blue-500',
+                warn: 'bg-yellow-500',
+                error: 'bg-red-500',
+                debug: 'bg-gray-500'
+            };
+
+            return (
+                <div className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words`}>
+                    <span className="text-gray-500 text-xs mr-2">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
                     
-                    // Try to reconnect after 5 seconds
-                    setTimeout(connect, 5000);
-                };
-                
-                ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                };
-                
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${levelBadgeClass[log.level]}`}>
+                        {log.level.toUpperCase()}
+                    </span>
                     
-                    if (data.type === 'history') {
-                        // Clear existing logs and add history
-                        logs = [];
-                        data.messages.forEach(message => {
-                            logs.push(message);
-                            if (!isPaused) {
-                                appendLog(message);
-                            }
-                        });
-                    } else if (data.type === 'message') {
-                        logs.push(data.message);
-                        if (!isPaused) {
-                            appendLog(data.message);
+                    <span className="mr-2">{log.message}</span>
+                    
+                    {log.data && (
+                        <pre className="mt-1 p-2 bg-gray-100 rounded overflow-x-auto">
+                            {typeof log.data === 'object' 
+                                ? JSON.stringify(log.data, null, 2)
+                                : log.data}
+                        </pre>
+                    )}
+                </div>
+            );
+        };
+
+        // Log Container Component
+        const LogContainer = ({ logs }) => {
+            const containerRef = useRef(null);
+            
+            useEffect(() => {
+                if (containerRef.current) {
+                    containerRef.current.scrollTop = containerRef.current.scrollHeight;
+                }
+            }, [logs]);
+            
+            return (
+                <div 
+                    ref={containerRef}
+                    className="h-[calc(100vh-180px)] overflow-y-auto bg-white rounded shadow"
+                >
+                    {logs.map((log, index) => (
+                        <LogEntry key={index} log={log} />
+                    ))}
+                    {logs.length === 0 && (
+                        <div className="p-4 text-center text-gray-500">No logs to display</div>
+                    )}
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [isConnected, setIsConnected] = useState(false);
+            const [logs, setLogs] = useState([]);
+            const [allLogs, setAllLogs] = useState([]);
+            const [isPaused, setIsPaused] = useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filters, setFilters] = useState({
+                info: true,
+                warn: true,
+                error: true,
+                debug: true
+            });
+            
+            const wsRef = useRef(null);
+            
+            // WebSocket connection setup
+            useEffect(() => {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsHost = window.location.hostname || 'localhost';
+                const wsPort = new URLSearchParams(window.location.search).get('port') || '8080';
+                const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}`;
+                
+                const connect = () => {
+                    wsRef.current = new WebSocket(wsUrl);
+                    
+                    wsRef.current.onopen = () => {
+                        setIsConnected(true);
+                    };
+                    
+                    wsRef.current.onclose = () => {
+                        setIsConnected(false);
+                        // Try to reconnect after 5 seconds
+                        setTimeout(connect, 5000);
+                    };
+                    
+                    wsRef.current.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                    };
+                    
+                    wsRef.current.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.type === 'history') {
+                            setAllLogs(data.messages);
+                        } else if (data.type === 'message') {
+                            setAllLogs(prev => [...prev, data.message]);
                         }
+                    };
+                };
+                
+                connect();
+                
+                // Cleanup on unmount
+                return () => {
+                    if (wsRef.current) {
+                        wsRef.current.close();
                     }
                 };
-            }
+            }, []);
             
-            function appendLog(logMessage) {
-                // Check if log should be filtered out
-                if (
-                    (logMessage.level === 'info' && !filterInfo.checked) ||
-                    (logMessage.level === 'warn' && !filterWarn.checked) ||
-                    (logMessage.level === 'error' && !filterError.checked) ||
-                    (logMessage.level === 'debug' && !filterDebug.checked)
-                ) {
-                    return;
-                }
+            // Filter logs whenever filters, search term or all logs change
+            useEffect(() => {
+                if (isPaused) return;
                 
-                // Check if log matches search term
-                const searchTerm = searchInput.value.toLowerCase();
-                if (searchTerm) {
-                    const messageText = logMessage.message.toLowerCase();
-                    const dataText = logMessage.data ? JSON.stringify(logMessage.data).toLowerCase() : '';
-                    if (!messageText.includes(searchTerm) && !dataText.includes(searchTerm)) {
-                        return;
+                const filteredLogs = allLogs.filter(log => {
+                    // Apply level filter
+                    if (!filters[log.level]) return false;
+                    
+                    // Apply search filter if search term exists
+                    if (searchTerm) {
+                        const messageText = log.message.toLowerCase();
+                        const dataText = log.data ? JSON.stringify(log.data).toLowerCase() : '';
+                        return messageText.includes(searchTerm.toLowerCase()) || 
+                               dataText.includes(searchTerm.toLowerCase());
                     }
-                }
+                    
+                    return true;
+                });
                 
-                const logEntry = document.createElement('div');
-                logEntry.classList.add('log-entry', `log-${logMessage.level}`);
-                
-                const timestamp = document.createElement('span');
-                timestamp.classList.add('timestamp');
-                timestamp.textContent = new Date(logMessage.timestamp).toLocaleTimeString();
-                
-                const level = document.createElement('span');
-                level.classList.add('level', `level-${logMessage.level}`);
-                level.textContent = logMessage.level.toUpperCase();
-                
-                const message = document.createElement('span');
-                message.classList.add('message');
-                message.textContent = logMessage.message;
-                
-                logEntry.appendChild(timestamp);
-                logEntry.appendChild(level);
-                logEntry.appendChild(message);
-                
-                if (logMessage.data) {
-                    const data = document.createElement('pre');
-                    data.classList.add('data');
-                    data.textContent = typeof logMessage.data === 'object' 
-                        ? JSON.stringify(logMessage.data, null, 2)
-                        : logMessage.data;
-                    logEntry.appendChild(data);
-                }
-                
-                logContainer.appendChild(logEntry);
-                
-                // Auto-scroll to bottom if not paused
-                if (!isPaused) {
-                    logContainer.scrollTop = logContainer.scrollHeight;
-                }
-            }
+                setLogs(filteredLogs);
+            }, [allLogs, filters, searchTerm, isPaused]);
             
-            function refreshLogs() {
-                // Clear log container
-                logContainer.innerHTML = '';
-                
-                // Re-apply all filters
-                logs.forEach(log => appendLog(log));
-            }
+            const toggleFilter = (level) => {
+                setFilters(prev => ({
+                    ...prev,
+                    [level]: !prev[level]
+                }));
+            };
             
-            // Event listeners
-            pauseButton.addEventListener('click', () => {
-                isPaused = !isPaused;
-                pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
-                
-                if (!isPaused) {
-                    // When resuming, refresh the view to show new logs
-                    refreshLogs();
-                }
-            });
+            const togglePause = () => {
+                setIsPaused(!isPaused);
+            };
             
-            clearButton.addEventListener('click', () => {
-                logs = [];
-                logContainer.innerHTML = '';
-            });
+            const clearLogs = () => {
+                setAllLogs([]);
+                setLogs([]);
+            };
             
-            // Filter changes
-            filterInfo.addEventListener('change', refreshLogs);
-            filterWarn.addEventListener('change', refreshLogs);
-            filterError.addEventListener('change', refreshLogs);
-            filterDebug.addEventListener('change', refreshLogs);
-            
-            // Search filtering
-            let searchTimeout;
-            searchInput.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(refreshLogs, 300);
-            });
-            
-            // Connect to WebSocket server
-            connect();
-        });
+            return (
+                <div className="min-h-screen">
+                    <Header isConnected={isConnected} />
+                    
+                    <div className="container mx-auto px-4">
+                        <Controls 
+                            searchTerm={searchTerm}
+                            setSearchTerm={setSearchTerm}
+                            filters={filters}
+                            toggleFilter={toggleFilter}
+                            isPaused={isPaused}
+                            togglePause={togglePause}
+                            clearLogs={clearLogs}
+                        />
+                        
+                        <LogContainer logs={logs} />
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
