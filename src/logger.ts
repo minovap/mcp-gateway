@@ -91,8 +91,8 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
     initWebSocketServer();
   }
   
-  const logToConsole = options.logToConsole !== false;
-  
+  let logToConsole = options.logToConsole ?? false;
+
   // Logger function for different log levels
   const sendLog = (level: LogMessage['level'], message: string, data?: any) => {
     const logMessage: LogMessage = {
