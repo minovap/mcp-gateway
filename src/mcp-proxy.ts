@@ -237,6 +237,7 @@ export const createServer = async () => {
           
           try {
             logToFile('info', `Executing batch sub-request for tool: ${req.tool_name}`);
+            logToWebsocket('tool', `➡️ ${req.tool_name}`, req.arguments || {});
             const result = await clientForTool.client.request(
               {
                 method: 'tools/call',
@@ -256,15 +257,20 @@ export const createServer = async () => {
               result: result
             });
 
+            let responseData;
             try {
+              // @ts-ignore
+              responseData = JSON.parse(result.content[0].text);
+              logToWebsocket('tool', `[done] ${req.tool_name}`, responseData);
               return {
-                // @ts-ignore
-                [req.id]: JSON.parse(result.content[0].text)
+                [req.id]: responseData
               };
             } catch (e) {
+              // @ts-ignore
+              responseData = result.content[0].text;
+              logToWebsocket('tool', `[done] ${req.tool_name}`, responseData);
               return {
-                // @ts-ignore
-                [req.id]: result.content[0].text
+                [req.id]: responseData
               };
             }
           } catch (error) {
@@ -310,6 +316,7 @@ export const createServer = async () => {
     
     try {
       logToFile('info', `Executing direct tool call for: ${name}`);
+      logToWebsocket('tool', `➡️ ${name} (direct call)`, args || {});
       const result = await clientForTool.client.request(
         {
           method: 'tools/call',
@@ -328,6 +335,7 @@ export const createServer = async () => {
         // Try to parse the result text as JSON 
         // @ts-ignore
         const jsonContent = JSON.parse(result.content[0].text);
+        logToWebsocket('tool', `[done] ${name} (direct call)`, jsonContent);
         // Add the warning to the JSON object
         jsonContent.error = 'You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
         // Convert back to text
@@ -335,7 +343,9 @@ export const createServer = async () => {
       } catch {
         // If not JSON, append the warning to the text
         // @ts-ignore
-        responseText = result.content[0].text + '\n\nERROR: You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
+        const textResponse = result.content[0].text;
+        logToWebsocket('tool', `[done] ${name} (direct call)`, textResponse);
+        responseText = textResponse + '\n\nERROR: You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
       }
       
       return {

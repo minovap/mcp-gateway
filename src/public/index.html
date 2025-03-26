@@ -79,7 +79,7 @@
             };
             
             return (
-                <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center mb-5">
+                <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-20">
                     <h1 className="text-xl font-semibold">MCP Logger</h1>
                     <div className="flex items-center space-x-4">
                         <div>
@@ -138,7 +138,7 @@
 
         // Controls Component
         const Controls = ({ searchTerm, setSearchTerm, filters, toggleFilter, isPaused, togglePause, clearLogs }) => (
-            <div className="flex items-center space-x-4 mb-4">
+            <div className="flex items-center space-x-4 mb-4 sticky top-16 z-10 bg-white py-3 px-3 rounded shadow-md">
                 <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
                 <LevelFilters filters={filters} toggleFilter={toggleFilter} />
@@ -160,7 +160,7 @@
         );
 
         // Log Entry Component
-        const LogEntry = ({ log }) => {
+        const LogEntry = ({ log, nextLog }) => {
             // Function to guess the language based on content
             const guessLanguage = (content) => {
                 // Default to json for object data
@@ -249,9 +249,29 @@
                 tool: 'bg-green-500'
             };
 
+            // Check if this is a batch completion message
+            const isBatchCompletion = log.level === 'batch' && (
+                (log.message && log.message.trim() === '[done]') ||
+                (log.message && log.message.includes('✅'))
+            );
+            
+            // Check if this is a batch start message (non-[done] batch message)
+            const isBatchStart = log.level === 'batch' && 
+                !(log.message && (log.message.trim() === '[done]' || log.message.includes('✅')));
+
             return (
                 <div 
                     className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
+                    style={{
+                        ...(isBatchCompletion ? { 
+                            marginBottom: '1.5rem', 
+                            borderBottom: '1px solid #9f7aea'
+                        } : {}),
+                        ...(isBatchStart ? {
+                            borderTop: '1px solid #9f7aea',
+                            paddingTop: '0.75rem'
+                        } : {})
+                    }}
                     onClick={() => log.data && setIsExpanded(!isExpanded)}
                 >
                     <span className="text-gray-500 text-xs mr-2">
@@ -309,10 +329,10 @@
             return (
                 <div 
                     ref={containerRef}
-                    className="h-[calc(100vh-180px)] overflow-y-auto bg-white rounded shadow"
+                    className="h-[calc(100vh-180px)] overflow-y-auto bg-white rounded shadow mt-1"
                 >
                     {logs.map((log, index) => (
-                        <LogEntry key={index} log={log} />
+                        <LogEntry key={index} log={log} nextLog={index < logs.length - 1 ? logs[index + 1] : null} />
                     ))}
                     {logs.length === 0 && (
                         <div className="p-4 text-center text-gray-500">No logs to display</div>
@@ -515,7 +535,7 @@
                 <div className="min-h-screen">
                     <Header isConnected={isConnected} />
                     
-                    <div className="container mx-auto px-4">
+                    <div className="container mx-auto pt-1">
                         <Controls 
                             searchTerm={searchTerm}
                             setSearchTerm={setSearchTerm}
