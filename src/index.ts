@@ -14,6 +14,7 @@ import { createServer } from "./mcp-proxy.js";
 import {initWebSocketServer, WS_PORT} from './logger.js';
 import { initHttpServer } from './web-server.js';
 import treeKill from 'tree-kill'
+import net from 'net'
 
 async function main() {
   const transport = new StdioServerTransport();
@@ -24,7 +25,6 @@ async function main() {
 // Function to check if port is in use
   const isPortInUse = (port: any) => {
     return new Promise((resolve) => {
-      const net = require('net');
       const tester = net.createServer()
         .once('error', () => {
           // Error indicates port is in use
@@ -38,7 +38,7 @@ async function main() {
     });
   };
 
-// Set timeout with the random delay
+  // Set timeout with the random delay
   setTimeout(async () => {
     try {
       // Check if WS_PORT is in use
