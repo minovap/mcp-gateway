@@ -49,10 +49,10 @@ async function main() {
         initWebSocketServer();
         initHttpServer();
       } else {
-        console.log(`Port ${WS_PORT} is already in use. Servers not started.`);
+        //console.log(`Port ${WS_PORT} is already in use. Servers not started.`);
       }
     } catch (error) {
-      console.error('Error during server initialization:', error);
+      //console.error('Error during server initialization:', error);
     }
   }, randomTimeout);
 
