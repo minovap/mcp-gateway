@@ -67,7 +67,7 @@ async function main() {
     await server.close();
 
     const parentPid = process.pid;
-    treeKill(parentPid, 'SIGTERM');
+    treeKill(parentPid, 'SIGTERM', () => process.exit(0));
 
     setTimeout(() => {
       console.error("Cleanup using tree-kill timed out. Exiting forcefully.");
