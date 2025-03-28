@@ -24,6 +24,7 @@ import { z } from 'zod';
 import * as eventsource from 'eventsource';
 import * as fs from 'fs';
 import * as path from 'path';
+import { initializeServers } from './web-server.js';
 
 global.EventSource = eventsource.EventSource
 
@@ -61,7 +62,7 @@ export const createServer = async () => {
   const toolToClientMap = new Map<string, ConnectedClient>();
   const resourceToClientMap = new Map<string, ConnectedClient>();
   const promptToClientMap = new Map<string, ConnectedClient>();
-  
+
   // Track servers that have failed to fetch prompts or resources so we don't retry them
   const failedPromptServers = new Map<string, boolean>();
   const failedResourceServers = new Map<string, boolean>();
@@ -84,7 +85,7 @@ export const createServer = async () => {
   server.setRequestHandler(ListToolsRequestSchema, async (request) => {
     const allTools: Tool[] = [];
     toolToClientMap.clear();
-    
+
     // Add our custom batch request tool
     allTools.push(batchRequestTool);
 
@@ -113,33 +114,33 @@ export const createServer = async () => {
             .filter(tool => {
               // Get the override for this tool if it exists
               const override = serverToolOverrides[tool.name];
-              
+
               // If there's an override with enabled explicitly set to false, filter it out
               if (override && override.enabled === false) {
                 return false;
               }
-              
+
               return true;
             })
             .map(tool => {
               toolToClientMap.set(tool.name, connectedClient);
-              
+
               // Apply description overrides if available
               const serverOverride = serverToolOverrides[tool.name];
-              
+
               let description = tool.description || '';
-              
+
               // Use server override for description if available
               if (serverOverride?.description) {
                 description = serverOverride.description;
               }
-              
+
               return {
                 ...tool,
                 description: `[${connectedClient.name}] ${description} (This tool's description is only for documentation - all tool uses should be sent through the batch_request tool)`
               };
             });
-            
+
           allTools.push(...toolsWithSource);
         }
       } catch (error) {
@@ -152,11 +153,14 @@ export const createServer = async () => {
 
   // Call Tool Handler
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    // Initialize servers with a maximum wait time of 500ms
+    await initializeServers(500);
+
     // Log the request
     logToFile('info', 'tools/call', request.params);
 
     const { name, arguments: args } = request.params;
-    
+
     // Check if this is our batch request tool
     if (name === 'batch_request') {
       logToFile('info', 'Processing batch request');
@@ -182,36 +186,36 @@ export const createServer = async () => {
           };
         }
         logToFile('info', `Received batch request with ${batchArgs.requests.length} sub-requests`);
-        
+
         // Check for duplicate IDs
         const idCounts = new Map<string, number>();
         for (const req of batchArgs.requests) {
           idCounts.set(req.id, (idCounts.get(req.id) || 0) + 1);
         }
-        
+
         const duplicateIds = Array.from(idCounts.entries())
           .filter(([_, count]) => count > 1)
           .map(([id]) => id);
-          
+
         if (duplicateIds.length > 0) {
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify({ 
-                  results: [], 
-                  isError: true, 
-                  error: `Duplicate request IDs found: ${duplicateIds.join(', ')}` 
+                text: JSON.stringify({
+                  results: [],
+                  isError: true,
+                  error: `Duplicate request IDs found: ${duplicateIds.join(', ')}`
                 })
               }
             ]
           };
         }
-        
+
         // Process each request in parallel and collect results
         const results = await Promise.all(batchArgs.requests.map(async (req) => {
           const clientForTool = toolToClientMap.get(req.tool_name);
-          
+
           if (!clientForTool) {
             return {
               tool_name: req.tool_name,
@@ -219,13 +223,13 @@ export const createServer = async () => {
               error: `Unknown tool: ${req.tool_name}`
             };
           }
-          
+
           // Check if this tool is disabled in the config
           // Look up the server config using the server name as key
           const serverName = clientForTool.name;
           const serverConfig = serversArray.find(s => s.name === serverName);
           const serverToolOverride = serverConfig?.toolOverrides?.[req.tool_name];
-          
+
           // Check if the tool is explicitly disabled in server config
           if (serverToolOverride?.enabled === false) {
             return {
@@ -234,7 +238,7 @@ export const createServer = async () => {
               error: `Tool is disabled in configuration: ${req.tool_name}`
             };
           }
-          
+
           try {
             logToFile('info', `Executing batch sub-request for tool: ${req.tool_name}`);
             logToWebsocket('tool', `➡️ ${req.tool_name}`, req.arguments || {});
@@ -282,13 +286,13 @@ export const createServer = async () => {
             };
           }
         }));
-        
+
         // Format the batch result according to the specified format
         //const batch_request_result_object = { results };
-        
+
         // Log batch request completion
         logToWebsocket('batch', `[done]`, results);
-        
+
         return {
           content: [
             {
@@ -302,7 +306,7 @@ export const createServer = async () => {
         throw error;
       }
     }
-    
+
     // Allow single tool calls to pass through
     const clientForTool = toolToClientMap.get(name);
     if (!clientForTool) {
@@ -313,7 +317,7 @@ export const createServer = async () => {
         }]
       };
     }
-    
+
     try {
       logToFile('info', `Executing direct tool call for: ${name}`);
       logToWebsocket('tool', `➡️ ${name} (direct call)`, args || {});
@@ -328,11 +332,11 @@ export const createServer = async () => {
         },
         CompatibilityCallToolResultSchema
       );
-      
+
       // Add a warning message to the result content
       let responseText = '';
       try {
-        // Try to parse the result text as JSON 
+        // Try to parse the result text as JSON
         // @ts-ignore
         const jsonContent = JSON.parse(result.content[0].text);
         logToWebsocket('tool', `[done] ${name} (direct call)`, jsonContent);
@@ -347,7 +351,7 @@ export const createServer = async () => {
         logToWebsocket('tool', `[done] ${name} (direct call)`, textResponse);
         responseText = textResponse + '\n\nERROR: You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
       }
-      
+
       return {
         content: [{
           type: "text",
@@ -571,7 +575,7 @@ export const createServer = async () => {
     failedResourceServers.clear();
     logToFile('info', `Reset failed servers lists (cleared ${previousPromptCount} prompt servers and ${previousResourceCount} resource servers)`);
   };
-  
+
   // For backward compatibility
   const resetFailedPromptServers = () => {
     const previousCount = failedPromptServers.size;

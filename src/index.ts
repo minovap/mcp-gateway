@@ -11,50 +11,10 @@
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp-proxy.js";
-import {initWebSocketServer, WS_PORT} from './logger.js';
-import { initHttpServer } from './web-server.js';
 import treeKill from 'tree-kill'
-import net from 'net'
 
 async function main() {
   const transport = new StdioServerTransport();
-
-// Generate a random timeout between 5 and 15 seconds (5000-15000ms)
-  const randomTimeout = Math.floor(Math.random() * 10000) + 5000;
-
-// Function to check if port is in use
-  const isPortInUse = (port: any) => {
-    return new Promise((resolve) => {
-      const tester = net.createServer()
-        .once('error', () => {
-          // Error indicates port is in use
-          resolve(true);
-        })
-        .once('listening', () => {
-          // If we can listen, the port is free
-          tester.close(() => resolve(false));
-        })
-        .listen(port);
-    });
-  };
-
-  // Set timeout with the random delay
-  setTimeout(async () => {
-    try {
-      // Check if WS_PORT is in use
-      const portInUse = await isPortInUse(WS_PORT);
-
-      if (!portInUse) {
-        // Only initialize if port is free
-        initWebSocketServer();
-        initHttpServer();
-      } else {
-        //console.log(`Port ${WS_PORT} is already in use. Servers not started.`);
-      }
-    } catch (error) {
-      //console.error('Error during server initialization:', error);
-    }
-  }, randomTimeout);
 
   const { server, cleanup } = await createServer();
   await server.connect(transport);
