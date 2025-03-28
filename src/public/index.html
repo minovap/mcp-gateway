@@ -137,7 +137,7 @@
         );
 
         // Controls Component
-        const Controls = ({ searchTerm, setSearchTerm, filters, toggleFilter, isPaused, togglePause, clearLogs }) => (
+        const Controls = ({ searchTerm, setSearchTerm, filters, toggleFilter, isPaused, togglePause, clearLogs, autoScroll, toggleAutoScroll }) => (
             <div className="flex items-center space-x-4 mb-4 sticky top-16 z-10 bg-white py-3 px-3 rounded shadow-md">
                 <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
@@ -155,6 +155,13 @@
                     className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200"
                 >
                     Clear
+                </button>
+                
+                <button 
+                    onClick={toggleAutoScroll}
+                    className={`px-3 py-2 text-white rounded transition duration-200 ${autoScroll ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'}`}
+                >
+                    {autoScroll ? 'Auto-Scroll: On' : 'Auto-Scroll: Off'}
                 </button>
             </div>
         );
@@ -317,14 +324,45 @@
         };
 
         // Log Container Component
-        const LogContainer = ({ logs }) => {
+        const LogContainer = ({ logs, autoScroll, setAutoScroll }) => {
             const containerRef = useRef(null);
             
+            // Simple auto-scrolling implementation - only scroll the body
             useEffect(() => {
-                if (containerRef.current) {
-                    containerRef.current.scrollTop = containerRef.current.scrollHeight;
-                }
-            }, [logs]);
+                if (!autoScroll || !logs || logs.length === 0) return;
+                
+                // Use a short timeout to ensure DOM is updated
+                const scrollTimeout = setTimeout(() => {
+                    // Scroll window to bottom (scrolls the body)
+                    window.scrollTo(0, document.body.scrollHeight);
+                }, 0);
+                
+                // Cleanup on unmount
+                return () => clearTimeout(scrollTimeout);
+            }, [logs, autoScroll]);
+            
+            // Function to detect when user manually scrolls up (to disable auto-scroll)
+            useEffect(() => {
+                const handleWindowScroll = () => {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const scrollHeight = document.body.scrollHeight;
+                    const clientHeight = window.innerHeight;
+                    
+                    const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 20; // Within 20px of bottom
+                    
+                    // If user has scrolled up, disable auto-scroll
+                    // If user has scrolled to bottom, enable auto-scroll
+                    setAutoScroll(isScrolledToBottom);
+                };
+                
+                // Add scroll listener to window
+                window.addEventListener('scroll', handleWindowScroll);
+                
+                // Cleanup
+                return () => {
+                    window.removeEventListener('scroll', handleWindowScroll);
+                };
+            }, [setAutoScroll]);
             
             return (
                 <div 
@@ -353,6 +391,7 @@
             const [logs, setLogs] = useState([]);
             const [allLogs, setAllLogs] = useState([]);
             const [isPaused, setIsPaused] = useState(false);
+            const [autoScroll, setAutoScroll] = useState(true);
             const lastBatchStart = useRef(null);
             const [searchTerm, setSearchTerm] = useState('');
             const [filters, setFilters] = useState({
@@ -497,6 +536,7 @@
             useEffect(() => {
                 if (isPaused) return;
                 
+                
                 const filteredLogs = allLogs.filter(log => {
                     // Apply level filter
                     if (!filters[log.level]) return false;
@@ -544,9 +584,16 @@
                             isPaused={isPaused}
                             togglePause={togglePause}
                             clearLogs={clearLogs}
+                            autoScroll={autoScroll}
+                            toggleAutoScroll={() => setAutoScroll(!autoScroll)}
                         />
                         
-                        <LogContainer logs={logs} />
+                        <LogContainer 
+                            key={`logs-${logs.length}`} 
+                            logs={logs} 
+                            autoScroll={autoScroll} 
+                            setAutoScroll={setAutoScroll} 
+                        />
                     </div>
                 </div>
             );
