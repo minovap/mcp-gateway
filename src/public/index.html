@@ -58,7 +58,7 @@
             'rainbow': 'Rainbow',
             'github-dark': 'GitHub Dark'
         };
-        
+
         // Function to change the theme (defined in React scope)
         const changeTheme = (themeName) => {
             const link = document.getElementById('highlightjs-theme');
@@ -71,21 +71,21 @@
         // Header Component
         const Header = ({ isConnected }) => {
             const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('highlightjs-theme') || 'atom-one-dark');
-            
+
             const handleThemeChange = (e) => {
                 const newTheme = e.target.value;
                 setCurrentTheme(newTheme);
                 changeTheme(newTheme);
             };
-            
+
             return (
                 <header className="bg-gray-800 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-20">
                     <h1 className="text-xl font-semibold">MCP Logger</h1>
                     <div className="flex items-center space-x-4">
                         <div>
                             <label htmlFor="theme-select" className="mr-2 text-sm">Theme:</label>
-                            <select 
-                                id="theme-select" 
+                            <select
+                                id="theme-select"
                                 className="bg-gray-700 text-white text-sm p-1 rounded"
                                 value={currentTheme}
                                 onChange={handleThemeChange}
@@ -100,13 +100,13 @@
                 </header>
             );
         };
-        
+
 
         // Search Component
         const SearchBox = ({ searchTerm, setSearchTerm }) => (
             <div className="relative flex-grow">
-                <input 
-                    type="text" 
+                <input
+                    type="text"
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Search logs..."
                     value={searchTerm}
@@ -140,24 +140,24 @@
         const Controls = ({ searchTerm, setSearchTerm, filters, toggleFilter, isPaused, togglePause, clearLogs, autoScroll, toggleAutoScroll }) => (
             <div className="flex items-center space-x-4 mb-4 sticky top-16 z-10 bg-white py-3 px-3 rounded shadow-md">
                 <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-                
+
                 <LevelFilters filters={filters} toggleFilter={toggleFilter} />
-                
-                <button 
+
+                <button
                     onClick={togglePause}
                     className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200"
                 >
                     {isPaused ? 'Resume' : 'Pause'}
                 </button>
-                
-                <button 
+
+                <button
                     onClick={clearLogs}
                     className="px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200"
                 >
                     Clear
                 </button>
-                
-                <button 
+
+                <button
                     onClick={toggleAutoScroll}
                     className={`px-3 py-2 text-white rounded transition duration-200 ${autoScroll ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'}`}
                 >
@@ -167,53 +167,61 @@
         );
 
         // Log Entry Component
-        const LogEntry = ({ log, nextLog }) => {
+        const LogEntry = ({ log, nextLog, logId, isExpanded, onToggleExpand }) => {
+            // Track the current document height before expansion
+            const rememberScrollPos = () => {
+                return {
+                    scrollHeight: document.body.scrollHeight,
+                    scrollTop: window.pageYOffset || document.documentElement.scrollTop,
+                    clientHeight: window.innerHeight
+                };
+            };
             // Function to guess the language based on content
             const guessLanguage = (content) => {
                 // Default to json for object data
                 if (typeof content === 'object') return 'json';
-                
+
                 const str = String(content);
-                
+
                 // HTML detection
-                if (str.startsWith('<!DOCTYPE html>') || str.includes('<html') || 
+                if (str.startsWith('<!DOCTYPE html>') || str.includes('<html') ||
                     (str.includes('<') && str.includes('</') && str.includes('>'))) {
                     return 'html';
                 }
-                
+
                 // XML detection
-                if (str.startsWith('<?xml') || (str.includes('<') && str.includes('</') && 
+                if (str.startsWith('<?xml') || (str.includes('<') && str.includes('</') &&
                     str.includes('xmlns='))) {
                     return 'xml';
                 }
-                
+
                 // JavaScript/TypeScript detection
                 if (str.includes('function') && (str.includes('{') || str.includes('=>'))) return 'javascript';
                 if (str.includes('import ') && str.includes('from ')) return 'typescript';
                 if (str.includes('class ') && str.includes('extends ')) return 'typescript';
                 if (str.includes('const ') || str.includes('let ') || str.includes('var ')) return 'javascript';
                 if (str.includes('export') && (str.includes('interface') || str.includes('type '))) return 'typescript';
-                
+
                 // CSS detection
-                if (str.includes('{') && str.includes('}') && 
-                   (str.includes('px') || str.includes('em') || str.includes('rgb') || 
+                if (str.includes('{') && str.includes('}') &&
+                   (str.includes('px') || str.includes('em') || str.includes('rgb') ||
                     str.includes('margin') || str.includes('padding'))) {
                     return 'css';
                 }
-                
+
                 // SQL detection
-                if ((str.includes('SELECT') || str.includes('UPDATE') || str.includes('INSERT INTO') || 
-                     str.includes('DELETE FROM')) && 
+                if ((str.includes('SELECT') || str.includes('UPDATE') || str.includes('INSERT INTO') ||
+                     str.includes('DELETE FROM')) &&
                     (str.includes('FROM') || str.includes('WHERE') || str.includes('VALUES'))) {
                     return 'sql';
                 }
-                
+
                 // Bash/Shell detection
-                if (str.startsWith('#!') || str.startsWith('$') || str.includes('apt-get') || 
+                if (str.startsWith('#!') || str.startsWith('$') || str.includes('apt-get') ||
                     str.includes('sudo') || str.includes('chmod') || str.includes('./')) {
                     return 'bash';
                 }
-                
+
                 // JSON detection
                 try {
                     if (str.trim().startsWith('{') || str.trim().startsWith('[')) {
@@ -223,7 +231,7 @@
                 } catch (e) {
                     // Not valid JSON, continue with other checks
                 }
-                
+
                 // Try to use highlight.js auto detection
                 try {
                     const result = hljs.highlightAuto(str);
@@ -233,11 +241,11 @@
                 } catch (e) {
                     // Auto detection failed, continue
                 }
-                
+
                 // Default for unknown
                 return 'plaintext';
             };
-            const [isExpanded, setIsExpanded] = useState(false);
+            // Using isExpanded from props instead of internal state
             const levelColorClass = {
                 info: 'border-blue-500',
                 warn: 'border-yellow-500 bg-yellow-50',
@@ -261,17 +269,17 @@
                 (log.message && log.message.trim() === '[done]') ||
                 (log.message && log.message.includes('✅'))
             );
-            
+
             // Check if this is a batch start message (non-[done] batch message)
-            const isBatchStart = log.level === 'batch' && 
+            const isBatchStart = log.level === 'batch' &&
                 !(log.message && (log.message.trim() === '[done]' || log.message.includes('✅')));
 
             return (
-                <div 
+                <div
                     className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
                     style={{
-                        ...(isBatchCompletion ? { 
-                            marginBottom: '1.5rem', 
+                        ...(isBatchCompletion ? {
+                            marginBottom: '1.5rem',
                             borderBottom: '1px solid #9f7aea'
                         } : {}),
                         ...(isBatchStart ? {
@@ -279,21 +287,43 @@
                             paddingTop: '0.75rem'
                         } : {})
                     }}
-                    onClick={() => log.data && setIsExpanded(!isExpanded)}
+                    onClick={() => {
+                        if (!log.data) return;
+
+                        // Before expanding, remember the scroll position
+                        const before = rememberScrollPos();
+                        const wasAtBottom = before.scrollHeight - before.scrollTop - before.clientHeight < 20;
+
+                        // Toggle the expanded state
+                        onToggleExpand(logId, !isExpanded);
+
+                        // After the DOM updates, restore scroll position or stick to bottom if needed
+                        setTimeout(() => {
+                            const after = rememberScrollPos();
+                            // If we're collapsing an entry, or we weren't at the bottom, maintain the same absolute scroll position
+                            if (isExpanded || !wasAtBottom) {
+                                window.scrollTo(0, before.scrollTop);
+                            }
+                            // If we were at the bottom and are expanding, scroll to the new bottom
+                            else if (wasAtBottom) {
+                                window.scrollTo(0, document.body.scrollHeight);
+                            }
+                        }, 0);
+                    }}
                 >
                     <span className="text-gray-500 text-xs mr-2">
                         {new Date(log.timestamp).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3})}
                     </span>
-                    
+
                     <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${levelBadgeClass[log.level]}`}>
                         {log.level.toUpperCase()}
                     </span>
-                    
+
                     <span className="mr-2">{log.message}</span>
-                    
+
                     {log.data && (
                         <>
-                            <span 
+                            <span
                                 className="absolute right-3 top-3 text-xs text-blue-600"
                             >
                                 {isExpanded ? '▼' : '▶'}
@@ -302,14 +332,14 @@
                                 <pre className="mt-2 p-2 bg-gray-100 rounded overflow-x-auto">
                                     <code ref={el => {
                                         if (el) {
-                                            const content = typeof log.data === 'object' 
+                                            const content = typeof log.data === 'object'
                                                 ? JSON.stringify(log.data, null, 2)
                                                 : String(log.data);
-                                            
+
                                             // Determine the language
                                             const language = guessLanguage(log.data);
                                             el.className = `hljs language-${language}`;
-                                            
+
                                             el.textContent = content;
                                             hljs.highlightElement(el);
                                         }
@@ -324,54 +354,106 @@
         };
 
         // Log Container Component
-        const LogContainer = ({ logs, autoScroll, setAutoScroll }) => {
+        const LogContainer = ({ logs, autoScroll, setAutoScroll, expandedEntries, setExpandedEntries }) => {
             const containerRef = useRef(null);
-            
-            // Simple auto-scrolling implementation - only scroll the body
+            const isScrolledToBottomRef = useRef(false);
+
+            // Modified auto-scrolling implementation that respects expanded entries
             useEffect(() => {
                 if (!autoScroll || !logs || logs.length === 0) return;
-                
-                // Use a short timeout to ensure DOM is updated
-                const scrollTimeout = setTimeout(() => {
-                    // Scroll window to bottom (scrolls the body)
-                    window.scrollTo(0, document.body.scrollHeight);
-                }, 0);
-                
-                // Cleanup on unmount
-                return () => clearTimeout(scrollTimeout);
+
+                // When autoScroll is true but we might have lost track of bottom position
+                // (e.g., after initial load), we need to check if we're actually at the bottom
+                if (autoScroll) {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const scrollHeight = document.body.scrollHeight;
+                    const clientHeight = window.innerHeight;
+
+                    // Within 20px of bottom is considered "at bottom"
+                    isScrolledToBottomRef.current = scrollHeight - scrollTop - clientHeight < 20;
+                }
+
+                // Only scroll if we're supposed to be at the bottom
+                if (isScrolledToBottomRef.current) {
+                    // Use a short timeout to ensure DOM is updated
+                    const scrollTimeout = setTimeout(() => {
+                        // Scroll window to bottom (scrolls the body)
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }, 0);
+
+                    // Cleanup on unmount
+                    return () => clearTimeout(scrollTimeout);
+                }
             }, [logs, autoScroll]);
-            
+
+            // Initialize scroll position when component mounts or autoScroll setting changes
+            useEffect(() => {
+                if (autoScroll) {
+                    // Set initial bottom position
+                    isScrolledToBottomRef.current = true;
+
+                    // Force a scroll to bottom
+                    setTimeout(() => {
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }, 0);
+                }
+            }, [autoScroll]);
+
             // Function to detect when user manually scrolls up (to disable auto-scroll)
             useEffect(() => {
                 const handleWindowScroll = () => {
                     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                     const scrollHeight = document.body.scrollHeight;
                     const clientHeight = window.innerHeight;
-                    
+
                     const isScrolledToBottom = scrollHeight - scrollTop - clientHeight < 20; // Within 20px of bottom
-                    
+
+                    // Update our ref to track if we're at the bottom
+                    isScrolledToBottomRef.current = isScrolledToBottom;
+
                     // If user has scrolled up, disable auto-scroll
                     // If user has scrolled to bottom, enable auto-scroll
                     setAutoScroll(isScrolledToBottom);
                 };
-                
+
                 // Add scroll listener to window
                 window.addEventListener('scroll', handleWindowScroll);
-                
+
+                // Initial check to see if we're at the bottom
+                handleWindowScroll();
+
                 // Cleanup
                 return () => {
                     window.removeEventListener('scroll', handleWindowScroll);
                 };
             }, [setAutoScroll]);
-            
+
             return (
-                <div 
+                <div
                     ref={containerRef}
                     className="h-[calc(100vh-180px)] overflow-y-auto bg-white rounded shadow mt-1"
                 >
-                    {logs.map((log, index) => (
-                        <LogEntry key={index} log={log} nextLog={index < logs.length - 1 ? logs[index + 1] : null} />
-                    ))}
+                    {logs.map((log, index) => {
+                        const logId = index + '-' + log.timestamp + '-' + log.level + '-' + (log.message?.substring(0, 20) || '');
+                        return (
+                            <LogEntry
+                                key={index}
+                                log={log}
+                                logId={logId}
+                                nextLog={index < logs.length - 1 ? logs[index + 1] : null}
+                                isExpanded={expandedEntries.has(logId)}
+                                onToggleExpand={(logId, expanded) => {
+                                    const newExpandedEntries = new Set(expandedEntries);
+                                    if (expanded) {
+                                        newExpandedEntries.add(logId);
+                                    } else {
+                                        newExpandedEntries.delete(logId);
+                                    }
+                                    setExpandedEntries(newExpandedEntries);
+                                }}
+                            />
+                        );
+                    })}
                     {logs.length === 0 && (
                         <div className="p-4 text-center text-gray-500">No logs to display</div>
                     )}
@@ -386,7 +468,7 @@
                 const savedTheme = localStorage.getItem('highlightjs-theme') || 'atom-one-dark';
                 changeTheme(savedTheme);
             }, []);
-            
+
             const [isConnected, setIsConnected] = useState(false);
             const [logs, setLogs] = useState([]);
             const [allLogs, setAllLogs] = useState([]);
@@ -394,6 +476,7 @@
             const [autoScroll, setAutoScroll] = useState(true);
             const lastBatchStart = useRef(null);
             const [searchTerm, setSearchTerm] = useState('');
+            const [expandedEntries, setExpandedEntries] = useState(new Set());
             const [filters, setFilters] = useState({
                 info: true,
                 warn: true,
@@ -402,65 +485,65 @@
                 batch: true,
                 tool: true
             });
-            
+
             const wsRef = useRef(null);
-            
+
             // WebSocket connection setup
             useEffect(() => {
                 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsHost = window.location.hostname || 'localhost';
                 const wsPort = new URLSearchParams(window.location.search).get('port') || '8080';
                 const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}`;
-                
+
                 const connect = () => {
                     wsRef.current = new WebSocket(wsUrl);
-                    
+
                     wsRef.current.onopen = () => {
                         setIsConnected(true);
                     };
-                    
+
                     wsRef.current.onclose = () => {
                         setIsConnected(false);
                         // Try to reconnect after 5 seconds
                         setTimeout(connect, 5000);
                     };
-                    
+
                     wsRef.current.onerror = (error) => {
                         console.error('WebSocket error:', error);
                     };
-                    
+
                     wsRef.current.onmessage = (event) => {
                         const data = JSON.parse(event.data);
-                        
+
                         if (data.type === 'history') {
                             // Process any batch messages in history
                             const processedMessages = processBatchMessages(data.messages);
                             setAllLogs(processedMessages);
                         } else if (data.type === 'message') {
                             const message = data.message;
-                            
+
                             // Handle batch messages
                             if (message.level === 'batch') {
                                 // Simple check for [done] messages
                                 const isDoneMessage = message.message && message.message.trim() === '[done]';
-                                
+
                                 if (isDoneMessage) {
                                     // Get the timestamp of the most recent batch start (if any)
                                     const lastBatchTimestamp = lastBatchStart.current;
-                                    
+
                                     if (lastBatchTimestamp) {
                                         const endTime = new Date(message.timestamp).getTime();
                                         const durationSec = ((endTime - lastBatchTimestamp) / 1000).toFixed(3);
-                                        
+
                                         // Create modified message
                                         const modifiedMessage = {
                                             ...message,
                                             message: `✅ ${durationSec}s`
                                         };
-                                        
+
                                         // Reset the last batch start timestamp
                                         lastBatchStart.current = null;
-                                        
+
                                         setAllLogs(prev => [...prev, modifiedMessage]);
                                         return;
                                     }
@@ -472,41 +555,41 @@
                                     }
                                 }
                             }
-                            
+
                             // Default handling for non-special messages
                             setAllLogs(prev => [...prev, message]);
                         }
                     };
-                    
+
                     // We're using a simpler sequential approach now, no need for batch ID helpers
-                    
+
                     // Process batch messages in history
                     const processBatchMessages = (messages) => {
                         let lastStartTime = null;
                         const processedMessages = [];
-                        
+
                         for (let i = 0; i < messages.length; i++) {
                             const msg = messages[i];
-                            
+
                             // Only process batch level messages
                             if (msg.level !== 'batch') {
                                 processedMessages.push(msg);
                                 continue;
                             }
-                            
+
                             // Check if this is a [done] message
                             const isDoneMessage = msg.message && msg.message.trim() === '[done]';
-                            
+
                             if (isDoneMessage && lastStartTime) {
                                 // Create a modified message with the timing information
                                 const endTime = new Date(msg.timestamp).getTime();
                                 const durationSec = ((endTime - lastStartTime) / 1000).toFixed(3);
-                                
+
                                 processedMessages.push({
                                     ...msg,
                                     message: `✅ ${durationSec}s`
                                 });
-                                
+
                                 // Reset the last start time
                                 lastStartTime = null;
                             } else {
@@ -517,13 +600,13 @@
                                 processedMessages.push(msg);
                             }
                         }
-                        
+
                         return processedMessages;
                     };
                 };
-                
+
                 connect();
-                
+
                 // Cleanup on unmount
                 return () => {
                     if (wsRef.current) {
@@ -531,52 +614,52 @@
                     }
                 };
             }, []);
-            
+
             // Filter logs whenever filters, search term or all logs change
             useEffect(() => {
                 if (isPaused) return;
-                
-                
+
+
                 const filteredLogs = allLogs.filter(log => {
                     // Apply level filter
                     if (!filters[log.level]) return false;
-                    
+
                     // Apply search filter if search term exists
                     if (searchTerm) {
                         const messageText = log.message.toLowerCase();
                         const dataText = log.data ? JSON.stringify(log.data).toLowerCase() : '';
-                        return messageText.includes(searchTerm.toLowerCase()) || 
+                        return messageText.includes(searchTerm.toLowerCase()) ||
                                dataText.includes(searchTerm.toLowerCase());
                     }
-                    
+
                     return true;
                 });
-                
+
                 setLogs(filteredLogs);
             }, [allLogs, filters, searchTerm, isPaused]);
-            
+
             const toggleFilter = (level) => {
                 setFilters(prev => ({
                     ...prev,
                     [level]: !prev[level]
                 }));
             };
-            
+
             const togglePause = () => {
                 setIsPaused(!isPaused);
             };
-            
+
             const clearLogs = () => {
                 setAllLogs([]);
                 setLogs([]);
             };
-            
+
             return (
                 <div className="min-h-screen">
                     <Header isConnected={isConnected} />
-                    
+
                     <div className="container mx-auto pt-1">
-                        <Controls 
+                        <Controls
                             searchTerm={searchTerm}
                             setSearchTerm={setSearchTerm}
                             filters={filters}
@@ -587,12 +670,14 @@
                             autoScroll={autoScroll}
                             toggleAutoScroll={() => setAutoScroll(!autoScroll)}
                         />
-                        
-                        <LogContainer 
-                            key={`logs-${logs.length}`} 
-                            logs={logs} 
-                            autoScroll={autoScroll} 
-                            setAutoScroll={setAutoScroll} 
+
+                        <LogContainer
+                            key={`logs-${logs.length}-${autoScroll ? 'scroll' : 'noscroll'}`}
+                            logs={logs}
+                            autoScroll={autoScroll}
+                            setAutoScroll={setAutoScroll}
+                            expandedEntries={expandedEntries}
+                            setExpandedEntries={setExpandedEntries}
                         />
                     </div>
                 </div>
