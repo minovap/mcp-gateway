@@ -1,5 +1,5 @@
-// Function to guess the language based on content
-export const guessLanguage = (content: any): string => {
+// Function to guess the language based on content and optionally a file path
+export const guessLanguage = (content: any, filePath?: string): string => {
   // Default to json for object data
   if (typeof content === 'object') return 'json';
 
@@ -52,6 +52,39 @@ export const guessLanguage = (content: any): string => {
     }
   } catch (e) {
     // Not valid JSON, continue with other checks
+  }
+
+  // If content-based detection failed and filePath is provided, use extension as fallback
+  if (filePath) {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'js': return 'javascript';
+      case 'ts': return 'typescript';
+      case 'tsx': return 'tsx';
+      case 'jsx': return 'jsx';
+      case 'html': return 'html';
+      case 'htm': return 'html';
+      case 'css': return 'css';
+      case 'scss': return 'scss';
+      case 'less': return 'less';
+      case 'py': return 'python';
+      case 'rb': return 'ruby';
+      case 'java': return 'java';
+      case 'php': return 'php';
+      case 'go': return 'go';
+      case 'rs': return 'rust';
+      case 'c': return 'c';
+      case 'cpp': return 'cpp';
+      case 'h': return 'c';
+      case 'hpp': return 'cpp';
+      case 'sh': return 'bash';
+      case 'md': return 'markdown';
+      case 'sql': return 'sql';
+      case 'json': return 'json';
+      case 'xml': return 'xml';
+      case 'yaml': return 'yaml';
+      case 'yml': return 'yaml';
+    }
   }
 
   // Default for unknown

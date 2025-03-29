@@ -5,6 +5,7 @@ import LogDataDisplay from './LogDataDisplay';
 import {LogMessage, LogMessageForWeb} from '@/utils/types';
 import {batchInputSchema} from "../../tools/batch-request";
 import {z} from "zod";
+import { renderEditBlocks } from '@/utils/editBlocksHandler';
 
 interface LogEntryProps {
   log: LogMessageForWeb;
@@ -145,8 +146,23 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
       )}
       
       {/* Expanded content area */}
-      {log && isExpanded && (
-        <LogDataDisplay log={log} />
+      {log.data && isExpanded && (
+        <div className="w-full mt-2 block" onClick={(e) => e.stopPropagation()}>
+          {/* Special handling for edit_blocks */}
+          {log.message.includes('edit_blocks') && log.data?.edits ? (
+            renderEditBlocks(log.data)
+          ) : (
+            <SyntaxHighlighterWithTheme
+              language={guessLanguage(log.data)}
+              className="p-2 rounded overflow-x-auto"
+            >
+              {typeof log.data === 'object'
+                ? JSON.stringify(log.data, null, 2)
+                : String(log.data)
+              }
+            </SyntaxHighlighterWithTheme>
+          )}
+        </div>
       )}
     </div>
   );
