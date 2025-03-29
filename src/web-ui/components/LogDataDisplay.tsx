@@ -4,6 +4,7 @@ import SyntaxHighlighterWithTheme from './SyntaxHighlighterWithTheme';
 import {LogMessage} from "../utils/types";
 import {z} from "zod";
 import {batchInputRequests} from "../../tools/batch-request";
+import {renderEditBlocks} from "../utils/editBlocksHandler";
 
 interface LogDataDisplayProps {
   log: LogMessage;
@@ -11,6 +12,15 @@ interface LogDataDisplayProps {
 type BatchRequest = z.infer<typeof batchInputRequests>;
 
 const LogDataDisplay: React.FC<LogDataDisplayProps> = ({ log }) => {
+  if (log.tool_name.includes('edit_blocks') && log.data?.edits) {
+    return (
+      <div className="w-full mt-2 block" onClick={(e) => e.stopPropagation()}>
+        {/* Special handling for edit_blocks */}
+        { renderEditBlocks(log.data) }
+      </div>
+    );
+  }
+
   if (log.tool_name === 'batch_request') {
     const mcpRequests: BatchRequest = log.data;
     
