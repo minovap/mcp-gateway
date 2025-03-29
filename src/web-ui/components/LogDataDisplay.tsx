@@ -30,7 +30,7 @@ const LogDataDisplay: React.FC<LogDataDisplayProps> = ({ log }) => {
     );
   }
 
-  if (log.tool_name === 'batch_request') {
+  if (log.tool_name === 'batch_request' && log.type === 'request') {
     const mcpRequests: BatchRequest = log.data;
     
     return (
