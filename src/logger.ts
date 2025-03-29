@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { EventEmitter } from 'events';
+import {LogMessage, LogMessageForWeb} from "@/utils/types";
 
 // Configure the WebSocket server port
 export const WS_PORT = process.env.WS_LOGGER_PORT || 8080;
@@ -65,26 +66,11 @@ export const closeWebSocketServer = async (): Promise<void> => {
       wss = null;
       console.error('WebSocket logger server closed');
       resolve();
-      logger = ({
-        info: () => {},
-        error: () => {},
-        warn: () => {},
-        debug: () => {},
-        log: () => {},
-        batch: () => {},
-        tool: () => {},
-      });
+      logger = (message: LogMessage) => {};
     });
   });
 };
 
-// Store recent messages for new clients
-interface LogMessage {
-  timestamp: string;
-  level: 'info' | 'error' | 'warn' | 'debug' | 'batch' | 'tool';
-  message: string;
-  data?: any;
-}
 
 const recentMessages: LogMessage[] = [];
 const MAX_RECENT_MESSAGES = 100;
@@ -95,15 +81,11 @@ const getRecentMessages = (): LogMessage[] => {
 
 
 // Export a default logger instance
-export let logger: any = ({
-    info: () => {},
-    error: () => {},
-    warn: () => {},
-    debug: () => {},
-    log: () => {},
-    batch: () => {},
-    tool: () => {},
-});
+export let logger: any = (message: LogMessage) => {};
+
+export const logToWebsocket = (message: LogMessage) => {
+  logger(message);
+};
 
 /**
  * Create a logger that sends messages via WebSocket
@@ -117,12 +99,10 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
   let logToConsole = options.logToConsole ?? false;
 
   // Logger function for different log levels
-  const sendLog = (level: LogMessage['level'], message: string, data?: any) => {
-    const logMessage: LogMessage = {
+  const sendLog = (message: LogMessage) => {
+    const logMessage: LogMessageForWeb = {
+      ...message,
       timestamp: new Date().toISOString(),
-      level,
-      message,
-      data
     };
     
     // Add to recent messages, maintain max size
@@ -136,27 +116,19 @@ export const createLogger = (options: { logToConsole?: boolean } = {}) => {
     
     // Log to console if enabled
     if (logToConsole) {
-      const consoleMethod = level === 'error' ? console.error :
-                           level === 'warn' ? console.warn :
-                           level === 'debug' ? console.debug :
+      const consoleMethod = message.level === 'error' ? console.error :
+                           message.level === 'warn' ? console.warn :
+                             message.level === 'debug' ? console.debug :
                            console.log;
       
-      consoleMethod(`[${level.toUpperCase()}] ${message}`, data !== undefined ? data : '');
+      consoleMethod(`[${message.level.toUpperCase()}] ${message}`, message);
     }
 
     
     return logMessage;
   };
   
-  return {
-    info: (message: string, data?: any) => sendLog('info', message, data),
-    error: (message: string, data?: any) => sendLog('error', message, data),
-    warn: (message: string, data?: any) => sendLog('warn', message, data),
-    debug: (message: string, data?: any) => sendLog('debug', message, data),
-    log: (message: string, data?: any) => sendLog('info', message, data),
-    batch: (message: string, data?: any) => sendLog('batch', message, data),
-    tool: (message: string, data?: any) => sendLog('tool', message, data),
-  };
+  return (message: LogMessage) => sendLog(message);
 };
 
 

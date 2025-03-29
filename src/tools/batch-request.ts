@@ -2,16 +2,17 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import {Tool} from "@modelcontextprotocol/sdk/types.js";
 
+export const batchInputRequests = z.array(
+  z.object({
+    tool_name: z.string().describe('The name of the tool to call'),
+    arguments: z.record(z.string(), z.any()).optional().describe('The arguments to pass to the tool'),
+    id: z.string().describe('An incrementing numer, starting from 1 for each batch'),
+    purpose: z.string().describe('A sentence describing the goal this tool call helps achieve.')
+  })
+);
 export const batchInputSchema = z.object({
   purpose: z.string().describe('A sentence describing the goal this batch call helps achieve.'),
-  requests: z.array(
-    z.object({
-      tool_name: z.string().describe('The name of the tool to call'),
-      arguments: z.record(z.string(), z.any()).optional().describe('The arguments to pass to the tool'),
-      id: z.string().describe('An incrementing numer, starting from 1 for each batch'),
-      purpose: z.string().describe('A sentence describing the goal this tool call helps achieve.')
-    })
-  )
+  requests: batchInputRequests
 })
 
 const outputSchema = z.object({

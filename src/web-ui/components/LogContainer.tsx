@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import LogEntry from '@/components/LogEntry';
-import { LogMessage } from '@/utils/types';
+import {LogMessage, LogMessageForWeb} from '@/utils/types';
 
 interface LogContainerProps {
-  logs: LogMessage[];
+  logs: LogMessageForWeb[];
   autoScroll: boolean;
   setAutoScroll: (autoScroll: boolean) => void;
   expandedEntries: Set<string>;
@@ -107,7 +107,7 @@ const LogContainer: React.FC<LogContainerProps> = ({
       className="h-[calc(100vh-180px)] overflow-y-auto bg-white rounded shadow mt-1 focus:outline-none"
     >
       {logs.map((log, index) => {
-        const logId = index + '-' + log.timestamp + '-' + log.level + '-' + (log.message?.substring(0, 20) || '');
+        const logId = index + '-' + log.timestamp + '-' + log.level + '-' + (log.description?.substring(0, 20) || '');
         return (
           <LogEntry
             key={logId}

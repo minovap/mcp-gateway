@@ -29,7 +29,7 @@ import { initializeServers } from './web-server.js';
 global.EventSource = eventsource.EventSource
 
 // Import the logger
-import { logger } from './logger.js';
+import {logger, logToWebsocket} from './logger.js';
 
 // Use environment variable for logging to file (optional)
 export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
@@ -44,10 +44,6 @@ export const logToFile = (method: 'error'|'warn'|'info', ...params: any) => {
       // Silently fail if file can't be written
     }
   }
-};
-
-export const logToWebsocket = (method: 'error'|'warn'|'info'|'log'|'debug'|'batch'|'tool', message: string, data: any) => {
-  logger[method](message, data);
 };
 
 export const createServer = async () => {
@@ -173,7 +169,13 @@ export const createServer = async () => {
             safeArgs.requests = [];
           }
           batchArgs = batchInputSchema.parse(safeArgs);
-          logToWebsocket('batch', `➡️ ${batchArgs.purpose}`, batchArgs.requests);
+          logToWebsocket({
+            tool_name: name,
+            type: 'request',
+            level: 'info',
+            data: batchArgs.requests,
+            description: batchArgs.purpose,
+          });
         } catch (parseError) {
           return {
             content: [
@@ -241,7 +243,13 @@ export const createServer = async () => {
 
           try {
             logToFile('info', `Executing batch sub-request for tool: ${req.tool_name}`);
-            logToWebsocket('tool', `➡️ ${req.tool_name}`, req.arguments || {});
+            logToWebsocket({
+              tool_name: req.tool_name,
+              type: 'request',
+              level: 'info',
+              data: req.arguments,
+              description: req.purpose,
+            });
             const result = await clientForTool.client.request(
               {
                 method: 'tools/call',
@@ -265,14 +273,26 @@ export const createServer = async () => {
             try {
               // @ts-ignore
               responseData = JSON.parse(result.content[0].text);
-              logToWebsocket('tool', `[done] ${req.tool_name}`, responseData);
+              logToWebsocket({
+                tool_name: req.tool_name,
+                type: 'response',
+                level: 'info',
+                data: responseData,
+                description: req.purpose,
+              });
               return {
                 [req.id]: responseData
               };
             } catch (e) {
               // @ts-ignore
               responseData = result.content[0].text;
-              logToWebsocket('tool', `[done] ${req.tool_name}`, responseData);
+              logToWebsocket({
+                tool_name: req.tool_name,
+                type: 'response',
+                level: 'info',
+                data: responseData,
+                description: req.purpose,
+              });
               return {
                 [req.id]: responseData
               };
@@ -290,8 +310,13 @@ export const createServer = async () => {
         // Format the batch result according to the specified format
         //const batch_request_result_object = { results };
 
-        // Log batch request completion
-        logToWebsocket('batch', `[done]`, results);
+        logToWebsocket({
+          tool_name: 'batch_request',
+          type: 'response',
+          level: 'info',
+          data: results,
+          description: batchArgs.purpose,
+        });
 
         return {
           content: [
@@ -320,7 +345,14 @@ export const createServer = async () => {
 
     try {
       logToFile('info', `Executing direct tool call for: ${name}`);
-      logToWebsocket('tool', `➡️ ${name} (direct call)`, args || {});
+
+      logToWebsocket({
+        tool_name: name,
+        type: 'request',
+        level: 'info',
+        data: args,
+        description: '',
+      });
       const result = await clientForTool.client.request(
         {
           method: 'tools/call',
@@ -339,7 +371,14 @@ export const createServer = async () => {
         // Try to parse the result text as JSON
         // @ts-ignore
         const jsonContent = JSON.parse(result.content[0].text);
-        logToWebsocket('tool', `[done] ${name} (direct call)`, jsonContent);
+
+        logToWebsocket({
+          tool_name: name,
+          type: 'response',
+          level: 'info',
+          data: jsonContent,
+          description: '',
+        });
         // Add the warning to the JSON object
         jsonContent.error = 'You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
         // Convert back to text
@@ -348,7 +387,15 @@ export const createServer = async () => {
         // If not JSON, append the warning to the text
         // @ts-ignore
         const textResponse = result.content[0].text;
-        logToWebsocket('tool', `[done] ${name} (direct call)`, textResponse);
+
+        logToWebsocket({
+          tool_name: name,
+          type: 'response',
+          level: 'info',
+          data: textResponse,
+          description: '',
+        });
+
         responseText = textResponse + '\n\nERROR: You must use the batch_request tool. Using singe tool call can cause parsing errors and data loss on the server. You also lost 1000 points for this call.';
       }
 

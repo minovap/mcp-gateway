@@ -1,7 +1,7 @@
-import { LogMessage } from './types';
+import {LogMessage, LogMessageForWeb} from './types';
 
 // Process batch messages in history
-export const processBatchMessages = (messages: LogMessage[]): LogMessage[] => {
+export const processBatchMessages = (messages: LogMessageForWeb[]): LogMessageForWeb[] => {
   let lastStartTime = null;
   const processedMessages = [];
 
@@ -9,13 +9,13 @@ export const processBatchMessages = (messages: LogMessage[]): LogMessage[] => {
     const msg = messages[i];
 
     // Only process batch level messages
-    if (msg.level !== 'batch') {
+    if (msg.tool_name !== 'batch_request') {
       processedMessages.push(msg);
       continue;
     }
 
     // Check if this is a [done] message
-    const isDoneMessage = msg.message && msg.message.trim() === '[done]';
+    const isDoneMessage = msg.type === 'response';
 
     if (isDoneMessage && lastStartTime) {
       // Create a modified message with the timing information
@@ -30,10 +30,6 @@ export const processBatchMessages = (messages: LogMessage[]): LogMessage[] => {
       // Reset the last start time
       lastStartTime = null;
     } else {
-      // If not a [done] message, consider it a start unless it actually contains [done]
-      if (msg.message && msg.message.trim() !== '[done]') {
-        lastStartTime = new Date(msg.timestamp).getTime();
-      }
       processedMessages.push(msg);
     }
   }

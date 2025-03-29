@@ -1,10 +1,13 @@
 import React from 'react';
 import { guessLanguage } from '@/utils/codeHighlighting';
 import SyntaxHighlighterWithTheme from './SyntaxHighlighterWithTheme';
-import { LogMessage } from '@/utils/types';
+import LogDataDisplay from './LogDataDisplay';
+import {LogMessage, LogMessageForWeb} from '@/utils/types';
+import {batchInputSchema} from "../../tools/batch-request";
+import {z} from "zod";
 
 interface LogEntryProps {
-  log: LogMessage;
+  log: LogMessageForWeb;
   nextLog: LogMessage | null;
   logId: string;
   isExpanded: boolean;
@@ -39,19 +42,28 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
     tool: 'bg-green-500'
   };
 
-  // Check if this is a batch completion message
-  const isBatchCompletion = log.level === 'batch' && (
-    (log.message && log.message.trim() === '[done]') ||
-    (log.message && log.message.includes('✅'))
-  );
 
-  // Check if this is a batch start message (non-[done] batch message)
-  const isBatchStart = log.level === 'batch' &&
-    !(log.message && (log.message.trim() === '[done]' || log.message.includes('✅')));
+  // Check if this is a batch completion message
+  const isBatchCompletion = log.tool_name === 'batch_request' && log.type === 'response';
+  const isBatchStart = log.tool_name === 'batch_request' && log.type === 'request';
+
+  let colorClass = '';
+  let badgeColorClass = '';
+
+  if (log.tool_name === 'batch_request') {
+    colorClass = levelColorClass['batch'];
+    badgeColorClass = levelBadgeClass['batch'];
+  } else if (log.tool_name === 'tool_request') {
+    colorClass = levelColorClass['tool'];
+    badgeColorClass = levelBadgeClass['tool'];
+  } else  {
+    colorClass = levelColorClass[log.level];
+    badgeColorClass = levelBadgeClass[log.level];
+  }
 
   return (
     <div
-      className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
+      className={`p-3 border-l-4 ${colorClass} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
       style={{
         ...(isBatchCompletion ? {
           marginBottom: '1.5rem',
@@ -93,29 +105,29 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
             {new Date(log.timestamp).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3})}
           </span>
 
-          <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${levelBadgeClass[log.level]}`}>
+          <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${badgeColorClass}`}>
             {log.level.toUpperCase()}
           </span>
 
-          <span className="mr-2">{log.message}</span>
+          <span className="mr-2">{log.description}</span>
         </div>
         
         {/* Tool description for specific tools */}
-        {log.level === 'tool' && (log.message.includes('bash') || log.message.includes('view') || log.message.includes('replace') || log.message.includes('grep') || log.message.includes('edit_blocks')) && (
+        {log.tool_name !== 'batch_request' && (log.tool_name.includes('bash') || log.tool_name.includes('view') || log.tool_name.includes('replace') || log.tool_name.includes('grep') || log.tool_name.includes('edit_blocks')) && (
           <div className="flex-shrink-0 ml-auto text-xs text-gray-700 overflow-hidden whitespace-nowrap text-right px-2" 
                 style={{ width: '30%', marginRight: '20px' }}>
             <span className="inline-block w-full overflow-hidden text-ellipsis truncate" title={
-              log.message.includes('bash') && log.data?.command ? `Command: ${log.data.command}` :
-              log.message.includes('view') && log.data?.file_path ? `File: ${log.data.file_path}` :
-              log.message.includes('replace') && log.data?.file_path ? `File: ${log.data.file_path}` :
-              log.message.includes('grep') && log.data?.pattern ? `Pattern: ${log.data.pattern}` :
-              log.message.includes('edit_blocks') && log.data?.edits ? `Files: ${Object.keys(log.data.edits).join(', ')}` : ''
+              log.tool_name.includes('bash') && log.data?.command ? `Command: ${log.data.command}` :
+              log.tool_name.includes('view') && log.data?.file_path ? `File: ${log.data.file_path}` :
+              log.tool_name.includes('replace') && log.data?.file_path ? `File: ${log.data.file_path}` :
+              log.tool_name.includes('grep') && log.data?.pattern ? `Pattern: ${log.data.pattern}` :
+              log.tool_name.includes('edit_blocks') && log.data?.edits ? `Files: ${Object.keys(log.data.edits).join(', ')}` : ''
             }>
-              {log.message.includes('bash') && log.data?.command && `$ ${log.data.command.length > 40 ? log.data.command.substring(0, 40) + '...' : log.data.command}`}
-              {log.message.includes('view') && log.data?.file_path && `📄 ${log.data.file_path}`}
-              {log.message.includes('replace') && log.data?.file_path && `💾 ${log.data.file_path}`}
-              {log.message.includes('grep') && log.data?.pattern && `🔍 ${log.data.pattern}`}
-              {log.message.includes('edit_blocks') && log.data?.edits && Object.keys(log.data.edits).map((filename, index) => 
+              {log.tool_name.includes('bash') && log.data?.command && `$ ${log.data.command.length > 40 ? log.data.command.substring(0, 40) + '...' : log.data.command}`}
+              {log.tool_name.includes('view') && log.data?.file_path && `📄 ${log.data.file_path}`}
+              {log.tool_name.includes('replace') && log.data?.file_path && `💾 ${log.data.file_path}`}
+              {log.tool_name.includes('grep') && log.data?.pattern && `🔍 ${log.data.pattern}`}
+              {log.tool_name.includes('edit_blocks') && log.data?.edits && Object.keys(log.data.edits).map((filename, index) =>
                 index === 0 ? `💾 ${filename}` : ` 💾 ${filename}`
               ).join('')}
             </span>
@@ -133,18 +145,8 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
       )}
       
       {/* Expanded content area */}
-      {log.data && isExpanded && (
-        <div className="w-full mt-2 block" onClick={(e) => e.stopPropagation()}>
-          <SyntaxHighlighterWithTheme
-            language={guessLanguage(log.data)}
-            className="p-2 rounded overflow-x-auto"
-          >
-            {typeof log.data === 'object'
-              ? JSON.stringify(log.data, null, 2)
-              : String(log.data)
-            }
-          </SyntaxHighlighterWithTheme>
-        </div>
+      {log && isExpanded && (
+        <LogDataDisplay log={log} />
       )}
     </div>
   );

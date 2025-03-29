@@ -3,8 +3,7 @@ import Header from '@/components/Header';
 import Controls from '@/components/Controls';
 import LogContainer from '@/components/LogContainer';
 import { processBatchMessages } from '@/utils/logProcessing';
-
-import { LogLevel, LogMessage } from '@/utils/types';
+import {LogMessage, LogLevel, LogMessageForWeb} from "./utils/types";
 
 const App: React.FC = () => {
   // Theme management is now handled by the SyntaxHighlighter component
@@ -22,8 +21,6 @@ const App: React.FC = () => {
     warn: true,
     error: true,
     debug: true,
-    batch: true,
-    tool: true
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -70,12 +67,12 @@ const App: React.FC = () => {
           const processedMessages = processBatchMessages(data.messages);
           setAllLogs(processedMessages);
         } else if (data.type === 'message') {
-          const message = data.message;
+          const message: LogMessageForWeb = data.message;
 
           // Handle batch messages
-          if (message.level === 'batch') {
+          if (message.tool_name === 'batch_request') {
             // Simple check for [done] messages
-            const isDoneMessage = message.message && message.message.trim() === '[done]';
+            const isDoneMessage = message.type === "response";
 
             if (isDoneMessage) {
               // Get the timestamp of the most recent batch start (if any)
@@ -96,12 +93,6 @@ const App: React.FC = () => {
 
                 setAllLogs(prev => [...prev, modifiedMessage]);
                 return;
-              }
-            } else {
-              // Any non-[done] batch message is considered a start
-              if (message.message && message.message.trim() !== '[done]') {
-                // Store the timestamp of this batch start
-                lastBatchStart.current = new Date(message.timestamp).getTime();
               }
             }
           }
@@ -132,7 +123,7 @@ const App: React.FC = () => {
 
       // Apply search filter if search term exists
       if (searchTerm) {
-        const messageText = log.message.toLowerCase();
+        const messageText = log.description.toLowerCase();
         const dataText = log.data ? JSON.stringify(log.data).toLowerCase() : '';
         return messageText.includes(searchTerm.toLowerCase()) ||
                dataText.includes(searchTerm.toLowerCase());
