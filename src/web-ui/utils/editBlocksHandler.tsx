@@ -188,12 +188,7 @@ export const renderEditBlocks = (data: any) => {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       {/* Display JSON with inline search/replace values */}
-      <div className="relative mb-2">
-        <div className="text-xs text-gray-600 italic mb-1">
-          <span className="mr-1">💡</span>
-          Search and replace values are displayed inline within the JSON structure
-        </div>
-      </div>
+      {/* Removed instructional text */}
       <div ref={highlighterRef}>
         <SyntaxHighlighterWithTheme
           language="json"
