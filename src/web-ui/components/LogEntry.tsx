@@ -1,0 +1,153 @@
+import React from 'react';
+import { guessLanguage } from '@/utils/codeHighlighting';
+import SyntaxHighlighterWithTheme from './SyntaxHighlighterWithTheme';
+import { LogMessage } from '@/utils/types';
+
+interface LogEntryProps {
+  log: LogMessage;
+  nextLog: LogMessage | null;
+  logId: string;
+  isExpanded: boolean;
+  onToggleExpand: (logId: string, expanded: boolean) => void;
+}
+
+const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, onToggleExpand }) => {
+  // Track the current document height before expansion
+  const rememberScrollPos = () => {
+    return {
+      scrollHeight: document.body.scrollHeight,
+      scrollTop: window.pageYOffset || document.documentElement.scrollTop,
+      clientHeight: window.innerHeight
+    };
+  };
+  
+  const levelColorClass: Record<string, string> = {
+    info: 'border-blue-500',
+    warn: 'border-yellow-500 bg-yellow-50',
+    error: 'border-red-500 bg-red-50',
+    debug: 'border-gray-500 text-gray-600',
+    batch: 'border-purple-500 bg-purple-50',
+    tool: 'border-green-500 bg-green-50'
+  };
+
+  const levelBadgeClass: Record<string, string> = {
+    info: 'bg-blue-500',
+    warn: 'bg-yellow-500',
+    error: 'bg-red-500',
+    debug: 'bg-gray-500',
+    batch: 'bg-purple-500',
+    tool: 'bg-green-500'
+  };
+
+  // Check if this is a batch completion message
+  const isBatchCompletion = log.level === 'batch' && (
+    (log.message && log.message.trim() === '[done]') ||
+    (log.message && log.message.includes('✅'))
+  );
+
+  // Check if this is a batch start message (non-[done] batch message)
+  const isBatchStart = log.level === 'batch' &&
+    !(log.message && (log.message.trim() === '[done]' || log.message.includes('✅')));
+
+  return (
+    <div
+      className={`p-3 border-l-4 ${levelColorClass[log.level]} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
+      style={{
+        ...(isBatchCompletion ? {
+          marginBottom: '1.5rem',
+          borderBottom: '1px solid #9f7aea'
+        } : {}),
+        ...(isBatchStart ? {
+          borderTop: '1px solid #9f7aea',
+          paddingTop: '0.75rem'
+        } : {})
+      }}
+      onClick={() => {
+        if (!log.data) return;
+
+        // Before expanding, remember the scroll position
+        const before = rememberScrollPos();
+        const wasAtBottom = before.scrollHeight - before.scrollTop - before.clientHeight < 20;
+
+        // Toggle the expanded state
+        onToggleExpand(logId, !isExpanded);
+
+        // After the DOM updates, restore scroll position or stick to bottom if needed
+        setTimeout(() => {
+          const after = rememberScrollPos();
+          // If we're collapsing an entry, or we weren't at the bottom, maintain the same absolute scroll position
+          if (isExpanded || !wasAtBottom) {
+            window.scrollTo(0, before.scrollTop);
+          }
+          // If we were at the bottom and are expanding, scroll to the new bottom
+          else if (wasAtBottom) {
+            window.scrollTo(0, document.body.scrollHeight);
+          }
+        }, 0);
+      }}
+    >
+      {/* Log header row with timestamp, level, message, and tool description */}
+      <div className="w-full flex justify-between items-center">
+        <div className="flex-grow overflow-hidden" style={{ maxWidth: '65%' }}>
+          <span className="text-gray-500 text-xs mr-2">
+            {new Date(log.timestamp).toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3})}
+          </span>
+
+          <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${levelBadgeClass[log.level]}`}>
+            {log.level.toUpperCase()}
+          </span>
+
+          <span className="mr-2">{log.message}</span>
+        </div>
+        
+        {/* Tool description for specific tools */}
+        {log.level === 'tool' && (log.message.includes('bash') || log.message.includes('view') || log.message.includes('replace') || log.message.includes('grep') || log.message.includes('edit_blocks')) && (
+          <div className="flex-shrink-0 ml-auto text-xs text-gray-700 overflow-hidden whitespace-nowrap text-right px-2" 
+                style={{ width: '30%', marginRight: '20px' }}>
+            <span className="inline-block w-full overflow-hidden text-ellipsis truncate" title={
+              log.message.includes('bash') && log.data?.command ? `Command: ${log.data.command}` :
+              log.message.includes('view') && log.data?.file_path ? `File: ${log.data.file_path}` :
+              log.message.includes('replace') && log.data?.file_path ? `File: ${log.data.file_path}` :
+              log.message.includes('grep') && log.data?.pattern ? `Pattern: ${log.data.pattern}` :
+              log.message.includes('edit_blocks') && log.data?.edits ? `Files: ${Object.keys(log.data.edits).join(', ')}` : ''
+            }>
+              {log.message.includes('bash') && log.data?.command && `$ ${log.data.command.length > 40 ? log.data.command.substring(0, 40) + '...' : log.data.command}`}
+              {log.message.includes('view') && log.data?.file_path && `📄 ${log.data.file_path}`}
+              {log.message.includes('replace') && log.data?.file_path && `💾 ${log.data.file_path}`}
+              {log.message.includes('grep') && log.data?.pattern && `🔍 ${log.data.pattern}`}
+              {log.message.includes('edit_blocks') && log.data?.edits && Object.keys(log.data.edits).map((filename, index) => 
+                index === 0 ? `💾 ${filename}` : ` 💾 ${filename}`
+              ).join('')}
+            </span>
+          </div>
+        )}
+      </div>
+      
+      {/* Expand/collapse indicator */}
+      {log.data && (
+        <span
+          className="absolute right-2 top-2 text-xs text-blue-600 z-10"
+        >
+          {isExpanded ? '▼' : '▶'}
+        </span>
+      )}
+      
+      {/* Expanded content area */}
+      {log.data && isExpanded && (
+        <div className="w-full mt-2 block" onClick={(e) => e.stopPropagation()}>
+          <SyntaxHighlighterWithTheme
+            language={guessLanguage(log.data)}
+            className="p-2 rounded overflow-x-auto"
+          >
+            {typeof log.data === 'object'
+              ? JSON.stringify(log.data, null, 2)
+              : String(log.data)
+            }
+          </SyntaxHighlighterWithTheme>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default LogEntry;
