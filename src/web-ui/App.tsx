@@ -4,28 +4,18 @@ import Controls from '@/components/Controls';
 import LogContainer from '@/components/LogContainer';
 import { processBatchMessages } from '@/utils/logProcessing';
 import { LogLevel, LogMessageForWeb} from "./utils/types";
-
-// Simple string hash function (djb2)
-const hashString = (str: string): string => {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i);
-  }
-  return String(hash);
-};
+import md5 from 'md5';
 
 const App: React.FC = () => {
   // Theme management is now handled by the SyntaxHighlighter component
 
   const [isConnected, setIsConnected] = useState(false);
-  const [logs, setLogs] = useState<LogMessageForWeb[]>([]);
-  const [allLogs, setAllLogs] = useState<LogMessageForWeb[]>([]);
+  const [logsMap, setLogsMap] = useState<Record<string, LogMessageForWeb>>({});
   const [isPaused, setIsPaused] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const lastBatchStart = useRef<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
-  const [processedMessageHashes, setProcessedMessageHashes] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<Record<LogLevel, boolean>>({
     info: true,
     warn: true,
@@ -75,20 +65,16 @@ const App: React.FC = () => {
         if (data.type === 'history') {
           // Process any batch messages in history
           const processedMessages = processBatchMessages(data.messages);
-          setAllLogs(processedMessages);
+          
+          // Convert array to map using MD5 hash as key
+          const newLogsMap: Record<string, LogMessageForWeb> = {};
+          processedMessages.forEach(message => {
+            const hash = md5(JSON.stringify(message));
+            newLogsMap[hash] = message;
+          });
+          
+          setLogsMap(newLogsMap);
         } else if (data.type === 'message') {
-          // Calculate message hash
-          const messageHash = hashString(JSON.stringify(data.message));
-          
-          // Check if this message has already been processed
-          if (processedMessageHashes.has(messageHash)) {
-            // Skip this message as it's a duplicate
-            return;
-          }
-          
-          // Add the hash to our processed hashes set
-          setProcessedMessageHashes(prev => new Set(prev).add(messageHash));
-          
           const message: LogMessageForWeb = data.message;
 
           // Handle batch messages
@@ -113,14 +99,22 @@ const App: React.FC = () => {
                 // Reset the last batch start timestamp
                 lastBatchStart.current = null;
 
-                setAllLogs(prev => [...prev, modifiedMessage]);
+                // Add to logs map
+                const messageHash = md5(JSON.stringify(data.message));
+                setLogsMap(prev => ({
+                  ...prev,
+                  [messageHash]: modifiedMessage
+                }));
                 return;
               }
             }
           }
 
-          // Default handling for non-special messages
-          setAllLogs(prev => [...prev, message]);
+          const messageHash = md5(JSON.stringify(data.message));
+          setLogsMap(prev => ({
+            ...prev,
+            [messageHash]: message
+          }));
         }
       };
     };
@@ -135,27 +129,28 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Filter logs whenever filters, search term or all logs change
-  useEffect(() => {
-    if (isPaused) return;
+  // Derive filtered logs from logsMap
+  const filteredLogs = Object.values(logsMap).filter(log => {
+    if (isPaused) return false;
+    
+    // Apply level filter
+    if (!filters[log.level]) return false;
 
-    const filteredLogs = allLogs.filter(log => {
-      // Apply level filter
-      if (!filters[log.level]) return false;
+    // Apply search filter if search term exists
+    if (searchTerm) {
+      const messageText = log.description.toLowerCase();
+      const dataText = log.data ? JSON.stringify(log.data).toLowerCase() : '';
+      return messageText.includes(searchTerm.toLowerCase()) ||
+             dataText.includes(searchTerm.toLowerCase());
+    }
 
-      // Apply search filter if search term exists
-      if (searchTerm) {
-        const messageText = log.description.toLowerCase();
-        const dataText = log.data ? JSON.stringify(log.data).toLowerCase() : '';
-        return messageText.includes(searchTerm.toLowerCase()) ||
-               dataText.includes(searchTerm.toLowerCase());
-      }
+    return true;
+  });
 
-      return true;
-    });
-
-    setLogs(filteredLogs);
-  }, [allLogs, filters, searchTerm, isPaused]);
+  // Sort logs by timestamp
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+  });
 
   const toggleFilter = (level: LogLevel) => {
     setFilters(prev => ({
@@ -169,8 +164,7 @@ const App: React.FC = () => {
   };
 
   const clearLogs = () => {
-    setAllLogs([]);
-    setLogs([]);
+    setLogsMap({});
   };
 
   return (
@@ -195,7 +189,7 @@ const App: React.FC = () => {
         />
 
         <LogContainer
-          logs={logs}
+          logs={sortedLogs}
           autoScroll={autoScroll}
           setAutoScroll={setAutoScroll}
           expandedEntries={expandedEntries}
