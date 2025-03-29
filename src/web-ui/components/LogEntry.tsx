@@ -149,7 +149,7 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
       {log.data && isExpanded && (
         <div className="w-full mt-2 block" onClick={(e) => e.stopPropagation()}>
           {/* Special handling for edit_blocks */}
-          {log.message.includes('edit_blocks') && log.data?.edits ? (
+          {log.tool_name.includes('edit_blocks') && log.data?.edits ? (
             renderEditBlocks(log.data)
           ) : (
             <SyntaxHighlighterWithTheme

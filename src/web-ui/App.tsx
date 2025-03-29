@@ -3,19 +3,29 @@ import Header from '@/components/Header';
 import Controls from '@/components/Controls';
 import LogContainer from '@/components/LogContainer';
 import { processBatchMessages } from '@/utils/logProcessing';
-import {LogMessage, LogLevel, LogMessageForWeb} from "./utils/types";
+import { LogLevel, LogMessageForWeb} from "./utils/types";
+
+// Simple string hash function (djb2)
+const hashString = (str: string): string => {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  return String(hash);
+};
 
 const App: React.FC = () => {
   // Theme management is now handled by the SyntaxHighlighter component
 
   const [isConnected, setIsConnected] = useState(false);
-  const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [allLogs, setAllLogs] = useState<LogMessage[]>([]);
+  const [logs, setLogs] = useState<LogMessageForWeb[]>([]);
+  const [allLogs, setAllLogs] = useState<LogMessageForWeb[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const lastBatchStart = useRef<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [processedMessageHashes, setProcessedMessageHashes] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<Record<LogLevel, boolean>>({
     info: true,
     warn: true,
@@ -67,6 +77,18 @@ const App: React.FC = () => {
           const processedMessages = processBatchMessages(data.messages);
           setAllLogs(processedMessages);
         } else if (data.type === 'message') {
+          // Calculate message hash
+          const messageHash = hashString(JSON.stringify(data.message));
+          
+          // Check if this message has already been processed
+          if (processedMessageHashes.has(messageHash)) {
+            // Skip this message as it's a duplicate
+            return;
+          }
+          
+          // Add the hash to our processed hashes set
+          setProcessedMessageHashes(prev => new Set(prev).add(messageHash));
+          
           const message: LogMessageForWeb = data.message;
 
           // Handle batch messages
