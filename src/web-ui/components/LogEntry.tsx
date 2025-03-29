@@ -114,7 +114,7 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
         </div>
         
         {/* Tool description for specific tools */}
-        {log.tool_name !== 'batch_request' && (log.tool_name.includes('bash') || log.tool_name.includes('view') || log.tool_name.includes('replace') || log.tool_name.includes('grep') || log.tool_name.includes('edit_blocks')) && (
+        {log.tool_name !== 'batch_request' && (log.tool_name.includes('bash') || log.tool_name.includes('view') || log.tool_name.includes('replace') || log.tool_name.includes('grep') || log.tool_name.includes('glob') || log.tool_name.includes('edit_blocks')) && (
           <div className="flex-shrink-0 ml-auto text-xs text-gray-700 overflow-hidden whitespace-nowrap text-right px-2" 
                 style={{ width: '30%', marginRight: '20px' }}>
             <span className="inline-block w-full overflow-hidden text-ellipsis truncate" title={
@@ -122,12 +122,14 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
               log.tool_name.includes('view') && log.data?.file_path ? `File: ${log.data.file_path}` :
               log.tool_name.includes('replace') && log.data?.file_path ? `File: ${log.data.file_path}` :
               log.tool_name.includes('grep') && log.data?.pattern ? `Pattern: ${log.data.pattern}` :
+              log.tool_name.includes('glob') && log.data?.pattern ? `Pattern: ${log.data.pattern}` :
               log.tool_name.includes('edit_blocks') && log.data?.edits ? `Files: ${Object.keys(log.data.edits).join(', ')}` : ''
             }>
               {log.tool_name.includes('bash') && log.data?.command && `$ ${log.data.command.length > 40 ? log.data.command.substring(0, 40) + '...' : log.data.command}`}
               {log.tool_name.includes('view') && log.data?.file_path && `📄 ${log.data.file_path}`}
               {log.tool_name.includes('replace') && log.data?.file_path && `💾 ${log.data.file_path}`}
               {log.tool_name.includes('grep') && log.data?.pattern && `🔍 ${log.data.pattern}`}
+              {log.tool_name.includes('glob') && log.data?.pattern && `🔍 ${log.data.pattern}`}
               {log.tool_name.includes('edit_blocks') && log.data?.edits && Object.keys(log.data.edits).map((filename, index) =>
                 index === 0 ? `💾 ${filename}` : ` 💾 ${filename}`
               ).join('')}
