@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import SyntaxHighlighterWithTheme from '../components/SyntaxHighlighterWithTheme';
-import { guessLanguage } from './codeHighlighting';
+import SyntaxHighlighterWithTheme from './SyntaxHighlighterWithTheme';
+import { guessLanguage } from '../utils/codeHighlighting';
 
 // Render edit blocks with simple search/replace display
-export const renderEditBlocks = (data: any) => {
+const EditBlocksDisplay = ({ data }: { data: any }) => {
   if (!data || !data.edits) {
     return null;
   }
@@ -89,7 +89,7 @@ export const renderEditBlocks = (data: any) => {
       });
       
       // Function to move the existing search/replace DOM elements into the span
-      function styleSpan(span, type, index) {
+      function styleSpan(span: HTMLSpanElement, type: string, index: number) {
         // Skip if already processed
         if (span.dataset.editType) return;
         
@@ -188,7 +188,6 @@ export const renderEditBlocks = (data: any) => {
   return (
     <div onClick={(e) => e.stopPropagation()}>
       {/* Display JSON with inline search/replace values */}
-      {/* Removed instructional text */}
       <div ref={highlighterRef}>
         <SyntaxHighlighterWithTheme
           language="json"
@@ -205,3 +204,5 @@ export const renderEditBlocks = (data: any) => {
     </div>
   );
 };
+
+export default EditBlocksDisplay;

@@ -5,7 +5,7 @@ import LogDataDisplay from './LogDataDisplay';
 import {LogMessage, LogMessageForWeb} from '@/utils/types';
 import {batchInputSchema} from "../../tools/batch-request";
 import {z} from "zod";
-import { renderEditBlocks } from '@/utils/editBlocksHandler';
+// Removed unused handler imports
 
 interface LogEntryProps {
   log: LogMessageForWeb;
