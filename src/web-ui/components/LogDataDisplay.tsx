@@ -39,17 +39,15 @@ const LogDataDisplay: React.FC<LogDataDisplayProps> = ({ log }) => {
           const args = request.arguments ? JSON.stringify(request.arguments, null, 2) : '{}';
           
           return (
-            <div key={index} className="border border-gray-200 rounded-md overflow-hidden shadow-sm bg-white">
+            <div key={index} className="overflow-hidden relative">
               {/* Tool name and purpose header */}
-              <div className="border-b border-gray-200">
-                <div className="px-4 py-2">
-                  <div className="flex items-center">
-                    <span className="font-medium text-purple-600 mr-2">Tool:</span>
-                    <span className="font-mono text-gray-800">{request.tool_name}</span>
-                  </div>
-                  <div className="flex items-start mt-1">
-                    <span className="font-medium text-purple-600 mr-2">Purpose:</span>
-                    <span className="text-gray-700">{request.purpose}</span>
+              <div>
+                <div className="px-4 py-3 relative">
+                  <div className="absolute shadow-lg drop-shadow left-0 bottom-0 ml-3 transform translate-y-[60%] z-10 px-3 py-1 bg-white text-xs rounded border border-gray-200">
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 bg-purple-600`}>
+                      {request.tool_name.toUpperCase()}
+                    </span>
+                    {request.purpose}
                   </div>
                 </div>
               </div>
@@ -57,7 +55,7 @@ const LogDataDisplay: React.FC<LogDataDisplayProps> = ({ log }) => {
               {/* Tool arguments code block */}
               <SyntaxHighlighterWithTheme
                 language="json"
-                className="rounded-b overflow-x-auto"
+                className="rounded overflow-x-auto pt-4"
               >
                 {args}
               </SyntaxHighlighterWithTheme>

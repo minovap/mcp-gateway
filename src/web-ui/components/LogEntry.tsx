@@ -62,6 +62,13 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
     badgeColorClass = levelBadgeClass[log.level];
   }
 
+  let label = log.level.toUpperCase();
+  if (log.tool_name === 'batch_request') {
+    label = 'BATCH';
+  } else if (log.tool_name !== '') {
+    label = log.tool_name.toUpperCase();
+  }
+
   return (
     <div
       className={`p-3 border-l-4 ${colorClass} border-b border-gray-200 font-mono text-sm break-words relative cursor-pointer`}
@@ -107,7 +114,7 @@ const LogEntry: React.FC<LogEntryProps> = ({ log, nextLog, logId, isExpanded, on
           </span>
 
           <span className={`inline-block px-1.5 py-0.5 rounded text-xs text-white mr-2 ${badgeColorClass}`}>
-            {log.level.toUpperCase()}
+            {label}
           </span>
 
           <span className="mr-2">{log.description}</span>

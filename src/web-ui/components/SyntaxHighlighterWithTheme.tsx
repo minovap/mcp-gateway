@@ -49,6 +49,10 @@ const SyntaxHighlighterWithTheme: React.FC<SyntaxHighlighterWithThemeProps> = ({
       className={className}
       wrapLines={true}
       wrapLongLines={true}
+      customStyle={{
+        paddingTop: '2em',
+        paddingBottom: '1.5em',
+      }}
     >
       {children}
     </SyntaxHighlighter>
