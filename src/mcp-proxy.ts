@@ -34,6 +34,9 @@ import {logger, logToWebsocket} from './logger.js';
 // Use environment variable for logging to file (optional)
 export const MCP_LOG_FILE = process.env.MCP_GATEWAY_LOG_FILE;
 
+// Use environment variable for parallel processing (optional, defaults to false)
+export const MCP_PARALLEL_PROCESSING = ['true', '1'].includes(process.env.MCP_PARALLEL_PROCESSING || '') ? true : false;
+
 export const logToFile = (method: 'error'|'warn'|'info', ...params: any) => {
   if (MCP_LOG_FILE) {
     try {
@@ -213,9 +216,9 @@ export const createServer = async () => {
             ]
           };
         }
-
-        // Process each request in parallel and collect results
-        const results = await Promise.all(batchArgs.requests.map(async (req) => {
+        
+        // Define a function to process a single request
+        const processRequest = async (req: any) => {
           const clientForTool = toolToClientMap.get(req.tool_name);
 
           if (!clientForTool) {
@@ -262,7 +265,6 @@ export const createServer = async () => {
               CompatibilityCallToolResultSchema
             );
 
-
             logToFile('info', 'tools->result', {
               tool_name: req.tool_name,
               success: true,
@@ -305,7 +307,22 @@ export const createServer = async () => {
               error: error instanceof Error ? error.message : String(error)
             };
           }
-        }));
+        };
+
+        // Configure whether to process requests in parallel or sequentially
+        let parallel = MCP_PARALLEL_PROCESSING; // Use the environment variable, defaults to false
+        // Process requests in parallel or sequentially based on the parallel flag
+        let results;
+        if (parallel) {
+          // Parallel execution
+          results = await Promise.all(batchArgs.requests.map(processRequest));
+        } else {
+          // Sequential execution
+          results = [];
+          for (const req of batchArgs.requests) {
+            results.push(await processRequest(req));
+          }
+        }
 
         // Format the batch result according to the specified format
         //const batch_request_result_object = { results };
